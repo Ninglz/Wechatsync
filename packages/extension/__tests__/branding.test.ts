@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AHAX_HOME_URL,
   AHAX_NAME,
-  openAhaxLandingForCurrentSession,
+  openAhaxLandingForExtensionBoot,
   extensionLandingUrl,
 } from '../src/lib/brand'
 
@@ -30,22 +30,18 @@ describe('AHAX extension branding', () => {
     expect(extensionLandingUrl('update')).toBe('https://ahax.net/?from=chrome-extension-reload')
   })
 
-  it('opens AHAX once for each extension session including a manual reload', async () => {
-    let opened = false
+  it('opens AHAX whenever an unpacked extension is reloaded', async () => {
     const created: Array<{ url: string; active: boolean }> = []
-    const storage = {
-      get: async () => ({ ahaxLandingOpenedForSession: opened }),
-      set: async () => { opened = true },
-    }
     const tabs = {
       create: async (value: { url: string; active: boolean }) => {
         created.push(value)
       },
     }
 
-    expect(await openAhaxLandingForCurrentSession(storage, tabs)).toBe(true)
-    expect(await openAhaxLandingForCurrentSession(storage, tabs)).toBe(false)
+    await openAhaxLandingForExtensionBoot(tabs)
+    await openAhaxLandingForExtensionBoot(tabs)
     expect(created).toEqual([
+      { url: 'https://ahax.net/?from=chrome-extension-reload', active: true },
       { url: 'https://ahax.net/?from=chrome-extension-reload', active: true },
     ])
   })

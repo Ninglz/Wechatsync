@@ -25,7 +25,7 @@ import {
   trackMilestone,
   trackGrowthMetrics,
 } from '../lib/analytics'
-import { openAhaxLandingForCurrentSession } from '../lib/brand'
+import { openAhaxLandingForExtensionBoot } from '../lib/brand'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
 import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
@@ -1137,10 +1137,9 @@ chrome.runtime.onInstalled.addListener(async details => {
 
 })
 
-// chrome://extensions 的“重新加载”不会触发 onInstalled。storage.session 会在
-// 扩展重新加载时清空，因此这里能覆盖安装、更新和手动刷新，又不会在 Service
-// Worker 的普通唤醒中反复开页。
-openAhaxLandingForCurrentSession(chrome.storage.session, chrome.tabs).catch(error => {
+// chrome://extensions 的“重新加载”不会触发 onInstalled。后台脚本每次重新
+// 启动时直接打开 AHAX，确保开发者加载的执行端刷新后总能回到产品入口。
+openAhaxLandingForExtensionBoot(chrome.tabs).catch(error => {
   logger.error(' Failed to open AHAX landing page:', error)
 })
 
