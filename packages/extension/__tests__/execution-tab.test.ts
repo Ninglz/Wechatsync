@@ -85,4 +85,14 @@ describe('execution task tabs', () => {
     })
     expect(JSON.stringify(mockStorage.activeSyncState)).not.toContain('article')
   })
+
+  it('rejects arbitrary platform ids and non-https login destinations', async () => {
+    await expect(
+      openLoginHandoffTab('toutiao/../../private', 'https://mp.toutiao.com'),
+    ).rejects.toThrow('Invalid platform')
+    await expect(
+      openLoginHandoffTab('toutiao', 'http://127.0.0.1/private'),
+    ).rejects.toThrow('Invalid platform homepage')
+    expect(chromeMock.tabs.create).not.toHaveBeenCalled()
+  })
 })
