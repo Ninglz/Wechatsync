@@ -26,6 +26,7 @@ import {
   trackGrowthMetrics,
 } from '../lib/analytics'
 import { openAhaxLandingForExtensionBoot } from '../lib/brand'
+import { bootstrapAhaxLocalExecution } from '../lib/local-bootstrap'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
 import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
@@ -1167,8 +1168,30 @@ async function initMcpIfEnabled() {
   }
 }
 
-// 启动 MCP 客户端（如果已启用）
-initMcpIfEnabled()
+async function bootstrapOrRestoreMcp(): Promise<void> {
+  const paired = await bootstrapAhaxLocalExecution({
+    extensionVersion: chrome.runtime.getManifest().version,
+    fetcher: fetch,
+    storageSet: values => chrome.storage.local.set(values),
+    setToken: token => mcpClient.setToken(token),
+    setServerUrl: url => mcpClient.setServerUrl(url),
+    start: startMcpClient,
+  })
+  if (!paired) await initMcpIfEnabled()
+}
+
+// AHAX Web 已运行时自动配对；不可用时保留已有本地配置并继续重连。
+bootstrapOrRestoreMcp()
+
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+  if (
+    changeInfo.status === 'complete' &&
+    typeof tab.url === 'string' &&
+    /^http:\/\/(127\.0\.0\.1|localhost):8765\//.test(tab.url)
+  ) {
+    bootstrapOrRestoreMcp()
+  }
+})
 
 /**
  * 预检查平台认证状态（后台静默执行）

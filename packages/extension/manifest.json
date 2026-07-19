@@ -4,7 +4,8 @@
   "short_name": "AHAX",
   "description": "本地优先的多平台内容 Agent，为各平台生成差异化内容并安全保存为草稿",
   "homepage_url": "https://ahax.net/",
-  "version": "2.0.9",
+  "version": "2.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwJM1cKAqgUteJ13cIs1UVNNTWzAMOrNKqS+AIQFGjMxb7H7qBBFGoSyR+Q4Q0D2BtudJaQy0qsG9jqz5E8mQjihBlbdvZaRzo5AjLG88yuBJrZhQ/IN3Jl0uxhP8mL2siqIvRtJyEgM3Qyz4KiRsIWkL0XGJzz4yMPFlHEvWoSJ5LnnuyvSifiQ04ZuTSjQ6vCf1/nKJJUuOf+uZd+36bnWJKjdkF0/NLOnEhusFcZyifZSt/gwhYgy1OsNGcClSi0A2LXWOxhsg0calhefoeg2Y1xtqbgcRR4AZfmTnX9uHie7pv4irZxEWvKCcWEFSZt7+NyXj2sRIHUev9bUMWwIDAQAB",
   "icons": {
     "16": "assets/icon-16.png",
     "48": "assets/icon-48.png",
