@@ -7,6 +7,9 @@ type SessionStorage = {
   get(key: string): Promise<Record<string, unknown>>
   set(value: Record<string, unknown>): Promise<void>
 }
+type Runtime = {
+  getURL(path: string): string
+}
 
 const LANDING_OPENED_KEY = 'ahaxLandingOpenedForExtensionSession'
 
@@ -18,6 +21,7 @@ export function extensionLandingUrl(reason: 'install' | 'update'): string {
 export async function openAhaxLandingForExtensionBoot(
   tabs: Tabs,
   sessionStorage: SessionStorage,
+  runtime: Runtime,
 ): Promise<void> {
   const state = await sessionStorage.get(LANDING_OPENED_KEY)
   if (state[LANDING_OPENED_KEY] === true) return
@@ -26,5 +30,8 @@ export async function openAhaxLandingForExtensionBoot(
   // an unpacked-extension reload. Mark before opening so concurrent wakeups
   // cannot create a tab storm.
   await sessionStorage.set({ [LANDING_OPENED_KEY]: true })
-  await tabs.create({ url: extensionLandingUrl('update'), active: true })
+  await tabs.create({
+    url: runtime.getURL('src/bootstrap/index.html'),
+    active: true,
+  })
 }

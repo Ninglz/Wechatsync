@@ -45,10 +45,17 @@ describe('AHAX extension branding', () => {
       },
     }
 
-    await openAhaxLandingForExtensionBoot(tabs, sessionStorage)
-    await openAhaxLandingForExtensionBoot(tabs, sessionStorage)
+    const runtime = {
+      getURL: (path: string) => `chrome-extension://ahax/${path}`,
+    }
+
+    await openAhaxLandingForExtensionBoot(tabs, sessionStorage, runtime)
+    await openAhaxLandingForExtensionBoot(tabs, sessionStorage, runtime)
     expect(created).toEqual([
-      { url: 'https://ahax.net/?from=chrome-extension-reload', active: true },
+      {
+        url: 'chrome-extension://ahax/src/bootstrap/index.html',
+        active: true,
+      },
     ])
   })
 

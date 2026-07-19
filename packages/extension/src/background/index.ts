@@ -140,6 +140,7 @@ type MessageAction =
   | { type: 'MCP_SET_SERVER_URL'; payload: { url: string } }
   | { type: 'MCP_WATCH_START' }
   | { type: 'MCP_WATCH_STOP' }
+  | { type: 'AHAX_RECONNECT_LOCAL_BRIDGE' }
   | { type: 'TRACK_ARTICLE_EXTRACT'; payload: { source: string; success: boolean; hasTitle?: boolean; hasContent?: boolean; hasCover?: boolean; contentLength?: number } }
   | { type: 'GET_SYNC_STATE' }
   | { type: 'CLEAR_SYNC_STATE' }
@@ -630,6 +631,11 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
       // 追踪 MCP 用户里程碑
       trackMilestone('mcp_user').catch(() => {})
       return { success: true, token }
+    }
+
+    case 'AHAX_RECONNECT_LOCAL_BRIDGE': {
+      const paired = await bootstrapOrRestoreMcp()
+      return { paired }
     }
 
     case 'MCP_DISABLE': {
@@ -1144,7 +1150,11 @@ chrome.runtime.onInstalled.addListener(async details => {
 // chrome://extensions 的“重新加载”不会触发 onInstalled。session storage
 // 会跨 service-worker 唤醒保留、在扩展重新加载时清空，因此每次重新加载
 // 只打开一次 AHAX，不会被每分钟的配对 alarm 制造标签页风暴。
-openAhaxLandingForExtensionBoot(chrome.tabs, chrome.storage.session).catch(error => {
+openAhaxLandingForExtensionBoot(
+  chrome.tabs,
+  chrome.storage.session,
+  chrome.runtime,
+).catch(error => {
   logger.error(' Failed to open AHAX landing page:', error)
 })
 
@@ -1172,8 +1182,17 @@ async function initMcpIfEnabled() {
   }
 }
 
-async function bootstrapOrRestoreMcp(): Promise<void> {
-  const paired = await bootstrapAhaxLocalExecution({
+async function waitForMcpConnection(timeoutMs = 3000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (mcpClient.isConnected()) return true
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+  return mcpClient.isConnected()
+}
+
+async function bootstrapOrRestoreMcp(): Promise<boolean> {
+  const configured = await bootstrapAhaxLocalExecution({
     extensionVersion: chrome.runtime.getManifest().version,
     fetcher: fetch,
     storageSet: values => chrome.storage.local.set(values),
@@ -1181,7 +1200,10 @@ async function bootstrapOrRestoreMcp(): Promise<void> {
     setServerUrl: url => mcpClient.setServerUrl(url),
     start: startMcpClient,
   })
-  if (!paired) await initMcpIfEnabled()
+  if (configured) return waitForMcpConnection()
+
+  await initMcpIfEnabled()
+  return false
 }
 
 // AHAX Web 已运行时自动配对；不可用时保留已有本地配置并继续重连。
