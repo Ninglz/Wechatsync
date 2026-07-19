@@ -67,7 +67,12 @@ export class ExtensionBridge {
   private startServer(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.wss = new WebSocketServer({ port: this.port, host: '127.0.0.1' })
+        this.wss = new WebSocketServer({
+          port: this.port,
+          host: '127.0.0.1',
+          verifyClient: ({ req }: { req: http.IncomingMessage }) =>
+            this.isWebSocketAuthorized(req.url),
+        })
 
         this.wss.on('listening', () => {
           if (!this.silent) console.error(`[Bridge] WebSocket server listening on port ${this.port}`)
@@ -183,6 +188,15 @@ export class ExtensionBridge {
     const expected = `Bearer ${this.token}`
     const actualBuffer = Buffer.from(header)
     const expectedBuffer = Buffer.from(expected)
+    return actualBuffer.length === expectedBuffer.length
+      && timingSafeEqual(actualBuffer, expectedBuffer)
+  }
+
+  private isWebSocketAuthorized(requestUrl: string | undefined): boolean {
+    if (!this.token) return false
+    const actual = new URL(requestUrl || '/', 'ws://127.0.0.1').searchParams.get('token') || ''
+    const actualBuffer = Buffer.from(actual)
+    const expectedBuffer = Buffer.from(this.token)
     return actualBuffer.length === expectedBuffer.length
       && timingSafeEqual(actualBuffer, expectedBuffer)
   }

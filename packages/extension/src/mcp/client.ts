@@ -11,6 +11,7 @@ import { createLogger } from '../lib/logger'
 import { performSync } from '../background/sync-service'
 import { buildExecutionState } from './execution-state'
 import { findExecutionTab, focusExecutionTab } from './execution-tab'
+import { authenticatedWebSocketUrl } from './pairing-url'
 
 const logger = createLogger('MCPClient')
 
@@ -123,7 +124,9 @@ class McpClient {
     logger.debug(`Connecting to ${this.serverUrl} (attempt ${this.reconnectAttempts + 1})`)
 
     try {
-      this.ws = new WebSocket(this.serverUrl)
+      this.ws = new WebSocket(
+        authenticatedWebSocketUrl(this.serverUrl, this.token),
+      )
 
       this.ws.onopen = () => {
         logger.debug('Connected to MCP Server')
