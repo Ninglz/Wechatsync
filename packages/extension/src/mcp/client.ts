@@ -10,6 +10,7 @@ import { markdownToHtml } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 import { performSync } from '../background/sync-service'
 import { buildExecutionState } from './execution-state'
+import { findExecutionTab, focusExecutionTab } from './execution-tab'
 
 const logger = createLogger('MCPClient')
 
@@ -325,8 +326,13 @@ class McpClient {
 
       case 'getExecutionState': {
         const storage = await chrome.storage.local.get('activeSyncState')
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-        return buildExecutionState(storage.activeSyncState, tabs[0])
+        const taskTab = await findExecutionTab(storage.activeSyncState)
+        return buildExecutionState(storage.activeSyncState, taskTab)
+      }
+
+      case 'focusExecutionTab': {
+        const storage = await chrome.storage.local.get('activeSyncState')
+        return focusExecutionTab(storage.activeSyncState)
       }
 
       case 'syncArticle': {

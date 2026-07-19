@@ -1,7 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "文章同步助手",
-  "description": "一键同步文章到知乎、头条、掘金等 20+ 平台，支持 WordPress 等自建站",
+  "name": "AHAX",
+  "short_name": "AHAX",
+  "description": "本地优先的多平台内容 Agent，为各平台生成差异化内容并安全保存为草稿",
+  "homepage_url": "https://ahax.net/",
   "version": "2.0.9",
   "icons": {
     "16": "assets/icon-16.png",

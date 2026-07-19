@@ -15,12 +15,12 @@
 import { htmlToMarkdownNative } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 
-const logger = createLogger('Wechatsync')
+const logger = createLogger('AHAX')
 
 // 敏感 API 白名单（仅 updateDriver 和 startInspect 需要检查）
 const SENSITIVE_API_WHITELIST = [
-  'https://www.wechatsync.com',
-  'https://developer.wechatsync.com',
+  'https://ahax.net',
+  'https://www.ahax.net',
   'http://localhost:8080',
 ];
 
@@ -307,4 +307,3 @@ if (document.readyState === 'loading') {
 } else {
   injectAPI();
 }
-

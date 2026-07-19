@@ -1,6 +1,6 @@
-# WechatSync MCP Server
+# AHAX Chrome 执行端 MCP Server
 
-MCP Server for WechatSync - 连接 Claude Code 和 Chrome Extension，实现 AI 辅助文章同步。
+AHAX 本地 MCP 桥接服务，连接 Codex/Claude CLI 与 Chrome 执行端，安全生成并保存多平台差异化草稿。
 
 ## 架构
 
@@ -36,7 +36,7 @@ yarn build
   "mcpServers": {
     "sync-assistant": {
       "command": "node",
-      "args": ["/path/to/Wechatsync/packages/mcp-server/dist/index.js"],
+      "args": ["/path/to/AHAX/packages/mcp-server/dist/index.js"],
       "env": {
         "MCP_TOKEN": "your-secret-token-here"
       }

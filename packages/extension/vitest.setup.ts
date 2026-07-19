@@ -43,7 +43,12 @@ const chromeMock = {
   tabs: {
     query: vi.fn(),
     create: vi.fn(),
+    get: vi.fn(),
+    update: vi.fn(),
     sendMessage: vi.fn(),
+  },
+  windows: {
+    update: vi.fn(),
   },
 }
 

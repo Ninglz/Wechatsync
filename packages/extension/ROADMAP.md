@@ -1,4 +1,4 @@
-# WechatSync v2.0 Roadmap
+# AHAX Chrome 执行端 Roadmap
 
 ## 🚀 功能增强
 

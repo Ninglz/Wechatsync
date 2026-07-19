@@ -119,7 +119,7 @@ const adapterEntries: AdapterEntry[] = ADAPTER_CLASSES.map(AdapterClass => {
   }
 })
 
-const logger = createLogger('WechatSync')
+const logger = createLogger('AHAX')
 
 // 运行时实例
 const runtime = createExtensionRuntime()

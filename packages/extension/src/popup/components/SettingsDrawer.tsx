@@ -209,7 +209,7 @@ export function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
             {mcpStatus.enabled && (
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
-                  供 CLI 和 MCP Server 通过 WebSocket 桥接同步文章
+                  供 AHAX Agent 通过本地安全桥接保存平台草稿
                 </p>
                 {mcpStatus.token && (
                   <div className="p-2 bg-muted/50 rounded text-xs">

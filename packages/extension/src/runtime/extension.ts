@@ -1,5 +1,6 @@
 import type { RuntimeInterface, RuntimeConfig } from '@wechatsync/core'
 import type { Cookie, HeaderRule } from '@wechatsync/core'
+import { recordExecutionTab } from '../mcp/execution-tab'
 
 /**
  * Chrome 扩展运行时实现
@@ -207,6 +208,7 @@ export class ExtensionRuntime implements RuntimeInterface {
 
     async create(url: string, active = false): Promise<{ id: number }> {
       const tab = await chrome.tabs.create({ url, active })
+      if (tab.id !== undefined) await recordExecutionTab(tab.id)
       return { id: tab.id! }
     },
 

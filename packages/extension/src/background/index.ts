@@ -25,6 +25,7 @@ import {
   trackMilestone,
   trackGrowthMetrics,
 } from '../lib/analytics'
+import { extensionLandingUrl } from '../lib/brand'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
 import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
@@ -1046,7 +1047,7 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
 function createContextMenu() {
   chrome.contextMenus.create({
     id: 'wechatsync-open-editor',
-    title: '同步助手 - 提取并编辑文章',
+    title: 'AHAX - 提取并编辑内容',
     contexts: ['page', 'selection'],
   })
 }
@@ -1134,28 +1135,10 @@ chrome.runtime.onInstalled.addListener(async details => {
     recordInstallTimestamp().catch(() => {})
   }
 
-  // 升级时打开 changelog 页面
-  if (details.reason === 'update') {
-    const previousVersion = details.previousVersion || '0.0.0'
-    const currentVersion = chrome.runtime.getManifest().version
-
-    // 重要版本升级时显示更新日志
-    const showChangelogVersions = ['2.0.8', '2.0.9']
-    if (
-      showChangelogVersions.includes(currentVersion) ||
-      (previousVersion.startsWith('1.') && currentVersion.startsWith('2.'))
-    ) {
-      chrome.tabs.create({
-        url: 'https://www.wechatsync.com/changelog?from=' + previousVersion + '&to=' + currentVersion,
-        active: true,
-      })
-    }
-  }
-
-  // 首次安装时打开欢迎页
-  if (details.reason === 'install') {
+  // 安装或在扩展管理页重新加载后，进入 AHAX 官网。
+  if (details.reason === 'install' || details.reason === 'update') {
     chrome.tabs.create({
-      url: 'https://www.wechatsync.com/?utm_source=extension&utm_medium=install',
+      url: extensionLandingUrl(details.reason),
       active: true,
     })
   }

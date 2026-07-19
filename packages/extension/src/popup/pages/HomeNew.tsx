@@ -124,7 +124,7 @@ export function HomeNew() {
       <header className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 border-b">
         <div className="flex items-center gap-2">
           <img src="/assets/icon-48.png" alt="Logo" className="w-6 h-6" />
-          <h1 className="font-semibold">文章同步助手</h1>
+          <h1 className="font-semibold">AHAX</h1>
         </div>
         <nav className="flex items-center gap-0.5">
           <button
@@ -214,30 +214,18 @@ export function HomeNew() {
             >
               <X className="w-4 h-4" />
             </button>
-            <p className="font-medium mb-1.5">谢谢支持！</p>
+            <p className="font-medium mb-1.5">欢迎使用 AHAX</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              如果觉得本工具不错，还请分享给你的朋友！
+              本地优先生成平台差异稿，并安全保存到各平台草稿箱。
               <br />
-              如果你是开发者，欢迎参与进来{' '}
+              查看完整内容工作流{' '}
               <a
-                href="https://github.com/wechatsync/Wechatsync"
+                href="https://ahax.net/?from=chrome-extension"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
-                GitHub
-              </a>
-            </p>
-            <hr className="my-2 border-border" />
-            <p className="text-xs text-muted-foreground text-right">
-              by{' '}
-              <a
-                href="https://fun0.netlify.app/about/?utm_source=wechatsync"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                fun
+                AHAX 官网
               </a>
             </p>
           </div>
@@ -279,7 +267,7 @@ export function HomeNew() {
                 }}
                 className="text-xs text-primary hover:underline block"
               >
-                开启悬浮按钮 — 在任意文章页一键同步
+                开启 AHAX 悬浮按钮 — 从任意文章页开始内容任务
               </button>
             )}
             <p className="text-xs text-green-600 dark:text-green-500">
