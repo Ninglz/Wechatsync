@@ -17,6 +17,7 @@ import { htmlToMarkdownNative, type PreprocessConfig } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 import { preprocessContentDOM, preprocessForPlatform, backupAndSimplifyCodeBlocks, restoreCodeBlocks, type PreprocessResult } from '../lib/content-processor'
 import { createSyncFab } from '../lib/fab'
+import { parseEditorMessage } from '../lib/editor-message'
 
 const logger = createLogger('Extractor')
 
@@ -1107,7 +1108,8 @@ function preprocessForMultiplePlatformsLocal(
  */
 window.addEventListener('message', async (event) => {
   try {
-    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+    const data = parseEditorMessage(event.data)
+    if (!data) return
 
     if (data.type === 'CLOSE_EDITOR') {
       closeEditor()

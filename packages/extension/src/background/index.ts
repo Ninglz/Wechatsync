@@ -26,7 +26,10 @@ import {
   trackGrowthMetrics,
 } from '../lib/analytics'
 import { openAhaxLandingForExtensionBoot } from '../lib/brand'
-import { bootstrapAhaxLocalExecution } from '../lib/local-bootstrap'
+import {
+  bootstrapAhaxLocalExecution,
+  shouldBootstrapForTab,
+} from '../lib/local-bootstrap'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
 import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
@@ -1186,8 +1189,7 @@ bootstrapOrRestoreMcp()
 chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
   if (
     changeInfo.status === 'complete' &&
-    typeof tab.url === 'string' &&
-    /^http:\/\/(127\.0\.0\.1|localhost):8765\//.test(tab.url)
+    shouldBootstrapForTab(tab.url)
   ) {
     bootstrapOrRestoreMcp()
   }
@@ -1220,12 +1222,17 @@ preCheckPlatformsAuth()
 chrome.alarms.create('daily_growth_metrics', { periodInMinutes: 24 * 60 })
 // 设置远程配置定期拉取（每 6 小时）
 chrome.alarms.create('remote_config_fetch', { periodInMinutes: 6 * 60 })
+// 配对失败时自动恢复。只读取本机受固定扩展 ID 保护的引导入口。
+chrome.alarms.create('ahax_local_pairing', { periodInMinutes: 1 })
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'daily_growth_metrics') {
     trackGrowthMetrics().catch(() => {})
   }
   if (alarm.name === 'remote_config_fetch') {
     fetchRemoteConfig().catch(() => {})
+  }
+  if (alarm.name === 'ahax_local_pairing' && !mcpClient.isConnected()) {
+    bootstrapOrRestoreMcp()
   }
 })
 

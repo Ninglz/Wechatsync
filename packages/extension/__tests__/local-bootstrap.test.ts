@@ -1,9 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { bootstrapAhaxLocalExecution } from '../src/lib/local-bootstrap'
+import {
+  bootstrapAhaxLocalExecution,
+  shouldBootstrapForTab,
+} from '../src/lib/local-bootstrap'
 
 
 describe('AHAX local execution bootstrap', () => {
+  it('retries pairing when either the local workspace or AHAX landing finishes loading', () => {
+    expect(shouldBootstrapForTab('http://127.0.0.1:8765/')).toBe(true)
+    expect(shouldBootstrapForTab('http://localhost:8765/projects/project_1')).toBe(true)
+    expect(shouldBootstrapForTab('https://ahax.net/?from=chrome-extension-reload')).toBe(true)
+    expect(shouldBootstrapForTab('https://www.ahax.net/')).toBe(true)
+    expect(shouldBootstrapForTab('https://example.com/')).toBe(false)
+    expect(shouldBootstrapForTab(undefined)).toBe(false)
+  })
+
   it('pairs the pinned extension with loopback without exposing the token in its result', async () => {
     const stored: Record<string, unknown>[] = []
     const setToken = vi.fn()
