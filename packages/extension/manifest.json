@@ -25,7 +25,8 @@
     "tabs",
     "alarms",
     "contextMenus",
-    "downloads"
+    "downloads",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "http://*/*",

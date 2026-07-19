@@ -5,8 +5,8 @@ import {
 } from '../src/lib/local-permission'
 
 describe('AHAX local network permission bootstrap', () => {
-  it('grants the extension document access before waking the worker', async () => {
-    const fetcher = vi.fn(async () => ({ ok: true }))
+  it('uses native pairing before asking for local network access', async () => {
+    const fetcher = vi.fn()
     const reconnect = vi.fn(async () => ({ paired: true }))
     const navigate = vi.fn()
 
@@ -18,10 +18,7 @@ describe('AHAX local network permission bootstrap', () => {
     })
 
     expect(result).toBe(true)
-    expect(fetcher).toHaveBeenCalledWith(
-      'http://127.0.0.1:8765/api/chrome/permission?version=2.1.0',
-      { cache: 'no-store', targetAddressSpace: 'local' },
-    )
+    expect(fetcher).not.toHaveBeenCalled()
     expect(reconnect).toHaveBeenCalledOnce()
     expect(navigate).toHaveBeenCalledWith(
       'https://ahax.net/?from=chrome-extension-reload',
@@ -29,7 +26,7 @@ describe('AHAX local network permission bootstrap', () => {
   })
 
   it('stays on the extension page when local access is denied', async () => {
-    const reconnect = vi.fn()
+    const reconnect = vi.fn(async () => ({ paired: false }))
     const navigate = vi.fn()
 
     const result = await requestLocalAccessBeforeWorkerPairing({
@@ -40,7 +37,7 @@ describe('AHAX local network permission bootstrap', () => {
     })
 
     expect(result).toBe(false)
-    expect(reconnect).not.toHaveBeenCalled()
+    expect(reconnect).toHaveBeenCalledTimes(1)
     expect(navigate).not.toHaveBeenCalled()
   })
 
@@ -50,7 +47,7 @@ describe('AHAX local network permission bootstrap', () => {
     const result = await requestLocalAccessBeforeWorkerPairing({
       extensionVersion: '2.1.0',
       fetcher: async () => ({ ok: true }),
-      reconnect: async () => ({ paired: false }),
+      reconnect: vi.fn(async () => ({ paired: false })),
       navigate,
     })
 

@@ -39,6 +39,7 @@ type BootstrapDependencies = {
   storageSet: (values: Record<string, unknown>) => Promise<void>
   setToken: (token: string) => void
   setServerUrl: (url: string) => void
+  setLocalTransport: (transport: 'native' | 'websocket') => void
   start: () => void
 }
 
@@ -55,6 +56,34 @@ function validPayload(value: unknown, version: string): value is BootstrapPayloa
   )
 }
 
+type BootstrapEffects = {
+  extensionVersion: string
+  storageSet: (values: Record<string, unknown>) => Promise<void>
+  setToken: (token: string) => void
+  setServerUrl: (url: string) => void
+  setLocalTransport: (transport: 'native' | 'websocket') => void
+  start: () => void
+}
+
+async function applyBootstrapPayload(
+  payload: unknown,
+  dependencies: BootstrapEffects,
+  transport: 'native' | 'websocket',
+): Promise<boolean> {
+  if (!validPayload(payload, dependencies.extensionVersion)) return false
+  await dependencies.storageSet({
+    mcpEnabled: true,
+    mcpServerUrl: payload.server_url,
+    mcpToken: payload.token,
+    mcpLocalTransport: transport,
+  })
+  dependencies.setToken(payload.token)
+  dependencies.setServerUrl(payload.server_url)
+  dependencies.setLocalTransport(transport)
+  dependencies.start()
+  return true
+}
+
 export async function bootstrapAhaxLocalExecution(
   dependencies: BootstrapDependencies,
 ): Promise<boolean> {
@@ -64,17 +93,30 @@ export async function bootstrapAhaxLocalExecution(
       { cache: 'no-store' },
     )
     if (!response.ok) return false
-    const payload = await response.json()
-    if (!validPayload(payload, dependencies.extensionVersion)) return false
-    await dependencies.storageSet({
-      mcpEnabled: true,
-      mcpServerUrl: payload.server_url,
-      mcpToken: payload.token,
+    return applyBootstrapPayload(await response.json(), dependencies, 'websocket')
+  } catch {
+    return false
+  }
+}
+
+type NativeBootstrapDependencies = BootstrapEffects & {
+  nativeRequest: (message: {
+    version: 1
+    type: 'bootstrap'
+    extensionVersion: string
+  }) => Promise<unknown>
+}
+
+export async function bootstrapAhaxNativeExecution(
+  dependencies: NativeBootstrapDependencies,
+): Promise<boolean> {
+  try {
+    const payload = await dependencies.nativeRequest({
+      version: 1,
+      type: 'bootstrap',
+      extensionVersion: dependencies.extensionVersion,
     })
-    dependencies.setToken(payload.token)
-    dependencies.setServerUrl(payload.server_url)
-    dependencies.start()
-    return true
+    return applyBootstrapPayload(payload, dependencies, 'native')
   } catch {
     return false
   }

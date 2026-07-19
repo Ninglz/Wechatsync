@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  bootstrapAhaxNativeExecution,
   bootstrapAhaxLocalExecution,
   shouldBootstrapForTab,
 } from '../src/lib/local-bootstrap'
@@ -20,6 +21,7 @@ describe('AHAX local execution bootstrap', () => {
     const stored: Record<string, unknown>[] = []
     const setToken = vi.fn()
     const setServerUrl = vi.fn()
+    const setLocalTransport = vi.fn()
     const start = vi.fn()
     const fetcher = vi.fn().mockResolvedValue({
       ok: true,
@@ -37,6 +39,7 @@ describe('AHAX local execution bootstrap', () => {
       storageSet: async values => { stored.push(values) },
       setToken,
       setServerUrl,
+      setLocalTransport,
       start,
     })
 
@@ -49,9 +52,12 @@ describe('AHAX local execution bootstrap', () => {
       mcpEnabled: true,
       mcpServerUrl: 'ws://127.0.0.1:9527',
       mcpToken: 'private-pairing-token',
+      mcpLocalTransport: 'websocket',
     }])
     expect(setToken).toHaveBeenCalledWith('private-pairing-token')
     expect(setServerUrl).toHaveBeenCalledWith('ws://127.0.0.1:9527')
+    expect(setLocalTransport).toHaveBeenCalledWith('websocket')
+    expect(stored[0]).toMatchObject({ mcpLocalTransport: 'websocket' })
     expect(start).toHaveBeenCalledOnce()
   })
 
@@ -71,10 +77,45 @@ describe('AHAX local execution bootstrap', () => {
       storageSet,
       setToken: vi.fn(),
       setServerUrl: vi.fn(),
+      setLocalTransport: vi.fn(),
       start: vi.fn(),
     })
 
     expect(result).toBe(false)
     expect(storageSet).not.toHaveBeenCalled()
+  })
+
+  it('loads the same pinned bootstrap through the fixed native host', async () => {
+    const storageSet = vi.fn(async () => undefined)
+    const setToken = vi.fn()
+    const setServerUrl = vi.fn()
+    const setLocalTransport = vi.fn()
+    const start = vi.fn()
+    const nativeRequest = vi.fn(async () => ({
+      extension_version: '2.1.0',
+      revision: 'f'.repeat(40),
+      server_url: 'ws://127.0.0.1:9527',
+      token: 'private-pairing-token',
+    }))
+
+    const result = await bootstrapAhaxNativeExecution({
+      extensionVersion: '2.1.0', nativeRequest, storageSet,
+      setToken, setServerUrl, setLocalTransport, start,
+    })
+
+    expect(result).toBe(true)
+    expect(nativeRequest).toHaveBeenCalledWith({
+      version: 1,
+      type: 'bootstrap',
+      extensionVersion: '2.1.0',
+    })
+    expect(storageSet).toHaveBeenCalledOnce()
+    expect(setToken).toHaveBeenCalledWith('private-pairing-token')
+    expect(setServerUrl).toHaveBeenCalledWith('ws://127.0.0.1:9527')
+    expect(setLocalTransport).toHaveBeenCalledWith('native')
+    expect(storageSet).toHaveBeenCalledWith(expect.objectContaining({
+      mcpLocalTransport: 'native',
+    }))
+    expect(start).toHaveBeenCalledOnce()
   })
 })

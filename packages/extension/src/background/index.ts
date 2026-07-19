@@ -27,9 +27,11 @@ import {
 } from '../lib/analytics'
 import { openAhaxLandingForExtensionBoot } from '../lib/brand'
 import {
+  bootstrapAhaxNativeExecution,
   bootstrapAhaxLocalExecution,
   shouldBootstrapForTab,
 } from '../lib/local-bootstrap'
+import { AHAX_NATIVE_HOST } from '../mcp/native-socket'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
 import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
@@ -1162,7 +1164,9 @@ openAhaxLandingForExtensionBoot(
  * 启动时初始化 MCP（如果已启用）
  */
 async function initMcpIfEnabled() {
-  const storage = await chrome.storage.local.get(['mcpEnabled', 'mcpToken', 'mcpServerUrl'])
+  const storage = await chrome.storage.local.get([
+    'mcpEnabled', 'mcpToken', 'mcpServerUrl', 'mcpLocalTransport',
+  ])
   if (storage.mcpEnabled) {
     if (storage.mcpToken) {
       mcpClient.setToken(storage.mcpToken)
@@ -1178,6 +1182,9 @@ async function initMcpIfEnabled() {
     if (storage.mcpServerUrl) {
       mcpClient.setServerUrl(storage.mcpServerUrl)
     }
+    mcpClient.setLocalTransport(
+      storage.mcpLocalTransport === 'websocket' ? 'websocket' : 'native',
+    )
     startMcpClient()
   }
 }
@@ -1192,13 +1199,34 @@ async function waitForMcpConnection(timeoutMs = 3000): Promise<boolean> {
 }
 
 async function bootstrapOrRestoreMcp(): Promise<boolean> {
-  const configured = await bootstrapAhaxLocalExecution({
-    extensionVersion: chrome.runtime.getManifest().version,
-    fetcher: fetch,
-    storageSet: values => chrome.storage.local.set(values),
-    setToken: token => mcpClient.setToken(token),
-    setServerUrl: url => mcpClient.setServerUrl(url),
+  const extensionVersion = chrome.runtime.getManifest().version
+  const effects = {
+    extensionVersion,
+    storageSet: (values: Record<string, unknown>) => chrome.storage.local.set(values),
+    setToken: (token: string) => mcpClient.setToken(token),
+    setServerUrl: (url: string) => mcpClient.setServerUrl(url),
+    setLocalTransport: (transport: 'native' | 'websocket') => (
+      mcpClient.setLocalTransport(transport)
+    ),
     start: startMcpClient,
+  }
+  const nativeConfigured = await bootstrapAhaxNativeExecution({
+    ...effects,
+    nativeRequest: message => chrome.runtime.sendNativeMessage(
+      AHAX_NATIVE_HOST,
+      message,
+    ),
+  })
+  if (nativeConfigured) return waitForMcpConnection()
+
+  const configured = await bootstrapAhaxLocalExecution({
+    extensionVersion,
+    fetcher: fetch,
+    storageSet: effects.storageSet,
+    setToken: effects.setToken,
+    setServerUrl: effects.setServerUrl,
+    setLocalTransport: effects.setLocalTransport,
+    start: effects.start,
   })
   if (configured) return waitForMcpConnection()
 

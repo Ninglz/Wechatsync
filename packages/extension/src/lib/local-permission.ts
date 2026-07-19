@@ -21,6 +21,17 @@ export async function requestLocalAccessBeforeWorkerPairing(
   dependencies: Dependencies,
 ): Promise<boolean> {
   try {
+    const nativeResult = await dependencies.reconnect()
+    if (
+      nativeResult &&
+      typeof nativeResult === 'object' &&
+      'paired' in nativeResult &&
+      nativeResult.paired === true
+    ) {
+      dependencies.navigate(extensionLandingUrl('update'))
+      return true
+    }
+
     const response = await dependencies.fetcher(
       `${LOCAL_PERMISSION_URL}?version=${encodeURIComponent(dependencies.extensionVersion)}`,
       { cache: 'no-store', targetAddressSpace: 'local' },

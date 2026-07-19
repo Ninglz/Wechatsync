@@ -12,6 +12,7 @@ import { performSync } from '../background/sync-service'
 import { buildExecutionState } from './execution-state'
 import { findExecutionTab, focusExecutionTab } from './execution-tab'
 import { authenticatedWebSocketUrl } from './pairing-url'
+import { NativeMcpSocket } from './native-socket'
 
 const logger = createLogger('MCPClient')
 
@@ -44,10 +45,30 @@ interface PendingUpload {
 
 const DEFAULT_SERVER_URL = 'ws://localhost:9527'
 
+type McpSocket = {
+  readyState: number
+  onopen: WebSocket['onopen']
+  onmessage: WebSocket['onmessage']
+  onclose: WebSocket['onclose']
+  onerror: WebSocket['onerror']
+  send(data: string): void
+  close(): void
+}
+
+function isLoopbackServer(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'ws:' && parsed.hostname === '127.0.0.1'
+  } catch {
+    return false
+  }
+}
+
 class McpClient {
-  private ws: WebSocket | null = null
+  private ws: McpSocket | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private serverUrl = DEFAULT_SERVER_URL
+  private localTransport: 'native' | 'websocket' = 'native'
 
   // 安全验证 token
   private token: string | null = null
@@ -100,13 +121,17 @@ class McpClient {
     return this.serverUrl
   }
 
+  setLocalTransport(transport: 'native' | 'websocket'): void {
+    this.localTransport = transport
+  }
+
   /**
    * 连接到 MCP Server
    */
   connect(): void {
     // 清理旧连接
     if (this.ws) {
-      if (this.ws.readyState === WebSocket.OPEN) {
+      if (this.ws.readyState === 1) {
         logger.debug('Already connected')
         return
       }
@@ -115,7 +140,7 @@ class McpClient {
       this.ws.onerror = null
       this.ws.onmessage = null
       this.ws.onopen = null
-      if (this.ws.readyState === WebSocket.CONNECTING) {
+      if (this.ws.readyState === 0) {
         this.ws.close()
       }
       this.ws = null
@@ -124,11 +149,15 @@ class McpClient {
     logger.debug(`Connecting to ${this.serverUrl} (attempt ${this.reconnectAttempts + 1})`)
 
     try {
-      this.ws = new WebSocket(
-        authenticatedWebSocketUrl(this.serverUrl, this.token),
+      const authenticatedUrl = authenticatedWebSocketUrl(this.serverUrl, this.token)
+      const socket: McpSocket = (
+        isLoopbackServer(this.serverUrl) && this.localTransport === 'native'
       )
+        ? new NativeMcpSocket(authenticatedUrl)
+        : new WebSocket(authenticatedUrl)
+      this.ws = socket
 
-      this.ws.onopen = () => {
+      socket.onopen = () => {
         logger.debug('Connected to MCP Server')
         this.reconnectAttempts = 0 // 重置重连计数
         this.lastConnectedAt = Date.now() // 记录连接时间
@@ -138,17 +167,17 @@ class McpClient {
         }
       }
 
-      this.ws.onmessage = (event) => {
+      socket.onmessage = (event) => {
         this.handleMessage(event.data)
       }
 
-      this.ws.onclose = (event) => {
+      socket.onclose = (event) => {
         logger.debug(`Disconnected (code: ${event.code}), scheduling reconnect...`)
         this.ws = null
         this.scheduleReconnect()
       }
 
-      this.ws.onerror = () => {
+      socket.onerror = () => {
         // error 事件后通常会触发 close，不需要在这里重连
         logger.debug('Connection error')
       }
@@ -179,7 +208,7 @@ class McpClient {
    * 检查是否已连接
    */
   isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN
+    return this.ws?.readyState === 1
   }
 
   /**
