@@ -9,6 +9,7 @@ import {
 import { markdownToHtml } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 import { performSync } from '../background/sync-service'
+import { buildExecutionState } from './execution-state'
 
 const logger = createLogger('MCPClient')
 
@@ -320,6 +321,12 @@ class McpClient {
         const platform = params?.platform as string
         if (!platform) throw new Error('Missing platform parameter')
         return await checkPlatformAuth(platform)
+      }
+
+      case 'getExecutionState': {
+        const storage = await chrome.storage.local.get('activeSyncState')
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+        return buildExecutionState(storage.activeSyncState, tabs[0])
       }
 
       case 'syncArticle': {

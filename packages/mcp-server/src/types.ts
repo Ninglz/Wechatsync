@@ -57,5 +57,6 @@ export interface SyncResult {
 export type ExtensionMethod =
   | 'listPlatforms'
   | 'checkAuth'
+  | 'getExecutionState'
   | 'syncArticle'
   | 'extractArticle'
