@@ -30,18 +30,24 @@ describe('AHAX extension branding', () => {
     expect(extensionLandingUrl('update')).toBe('https://ahax.net/?from=chrome-extension-reload')
   })
 
-  it('opens AHAX whenever an unpacked extension is reloaded', async () => {
+  it('opens AHAX once per extension session without spawning tabs on worker wakeups', async () => {
     const created: Array<{ url: string; active: boolean }> = []
+    const session: Record<string, unknown> = {}
     const tabs = {
       create: async (value: { url: string; active: boolean }) => {
         created.push(value)
       },
     }
+    const sessionStorage = {
+      get: async (key: string) => ({ [key]: session[key] }),
+      set: async (value: Record<string, unknown>) => {
+        Object.assign(session, value)
+      },
+    }
 
-    await openAhaxLandingForExtensionBoot(tabs)
-    await openAhaxLandingForExtensionBoot(tabs)
+    await openAhaxLandingForExtensionBoot(tabs, sessionStorage)
+    await openAhaxLandingForExtensionBoot(tabs, sessionStorage)
     expect(created).toEqual([
-      { url: 'https://ahax.net/?from=chrome-extension-reload', active: true },
       { url: 'https://ahax.net/?from=chrome-extension-reload', active: true },
     ])
   })

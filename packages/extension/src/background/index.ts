@@ -1141,9 +1141,10 @@ chrome.runtime.onInstalled.addListener(async details => {
 
 })
 
-// chrome://extensions 的“重新加载”不会触发 onInstalled。后台脚本每次重新
-// 启动时直接打开 AHAX，确保开发者加载的执行端刷新后总能回到产品入口。
-openAhaxLandingForExtensionBoot(chrome.tabs).catch(error => {
+// chrome://extensions 的“重新加载”不会触发 onInstalled。session storage
+// 会跨 service-worker 唤醒保留、在扩展重新加载时清空，因此每次重新加载
+// 只打开一次 AHAX，不会被每分钟的配对 alarm 制造标签页风暴。
+openAhaxLandingForExtensionBoot(chrome.tabs, chrome.storage.session).catch(error => {
   logger.error(' Failed to open AHAX landing page:', error)
 })
 
