@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AHAX_HOME_URL,
   AHAX_NAME,
+  openAhaxLandingForCurrentSession,
   extensionLandingUrl,
 } from '../src/lib/brand'
 
@@ -27,6 +28,26 @@ describe('AHAX extension branding', () => {
     expect(AHAX_HOME_URL).toBe('https://ahax.net/')
     expect(extensionLandingUrl('install')).toBe('https://ahax.net/?from=chrome-extension-install')
     expect(extensionLandingUrl('update')).toBe('https://ahax.net/?from=chrome-extension-reload')
+  })
+
+  it('opens AHAX once for each extension session including a manual reload', async () => {
+    let opened = false
+    const created: Array<{ url: string; active: boolean }> = []
+    const storage = {
+      get: async () => ({ ahaxLandingOpenedForSession: opened }),
+      set: async () => { opened = true },
+    }
+    const tabs = {
+      create: async (value: { url: string; active: boolean }) => {
+        created.push(value)
+      },
+    }
+
+    expect(await openAhaxLandingForCurrentSession(storage, tabs)).toBe(true)
+    expect(await openAhaxLandingForCurrentSession(storage, tabs)).toBe(false)
+    expect(created).toEqual([
+      { url: 'https://ahax.net/?from=chrome-extension-reload', active: true },
+    ])
   })
 
   it('removes upstream branding from every shipped user-facing surface', () => {
