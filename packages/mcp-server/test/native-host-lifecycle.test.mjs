@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:http'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { WebSocketServer } from 'ws'
@@ -43,5 +44,51 @@ test('native host exits when Chrome closes the native messaging pipe', async () 
   } finally {
     child.kill('SIGKILL')
     await new Promise(resolve => bridge.close(resolve))
+  }
+})
+
+test('one-shot bootstrap exits after returning the local configuration', async () => {
+  const server = createServer((request, response) => {
+    assert.match(request.url ?? '', /^\/api\/chrome\/bootstrap\?version=2\.1\.0$/)
+    response.writeHead(200, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({
+      extension_version: '2.1.0',
+      revision: 'f'.repeat(40),
+      server_url: 'ws://127.0.0.1:9527',
+      token: 'abcdefghijklmnop',
+    }))
+  })
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(8765, '127.0.0.1', resolve)
+  })
+  const child = spawn(process.execPath, [nativeHost, extensionOrigin], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
+  try {
+    const message = Buffer.from(JSON.stringify({
+      version: 1,
+      type: 'bootstrap',
+      extensionVersion: '2.1.0',
+    }))
+    const header = Buffer.alloc(4)
+    header.writeUInt32LE(message.length, 0)
+    child.stdin.write(Buffer.concat([header, message]))
+
+    const exitCode = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        child.kill('SIGKILL')
+        reject(new Error('bootstrap native host did not exit after replying'))
+      }, 1000)
+      child.once('exit', code => {
+        clearTimeout(timeout)
+        resolve(code)
+      })
+    })
+
+    assert.equal(exitCode, 0)
+  } finally {
+    child.kill('SIGKILL')
+    await new Promise(resolve => server.close(resolve))
   }
 })

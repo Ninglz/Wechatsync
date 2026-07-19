@@ -34,7 +34,7 @@ function shutdown(): void {
   socket?.removeAllListeners()
   socket?.terminate()
   socket = null
-  stdout.end()
+  stdout.end(() => process.exit(0))
 }
 
 function fixedError(code: string): void {
@@ -49,6 +49,7 @@ async function handle(message: NativeClientMessage): Promise<void> {
     )
     if (!response.ok) throw new Error('bootstrap_unavailable')
     reply(await response.json())
+    shutdown()
     return
   }
 
