@@ -15,14 +15,26 @@ if (!validateCallerOrigin(callerOrigin)) process.exit(1)
 let pending = Buffer.alloc(0)
 let socket: WebSocket | null = null
 let chain = Promise.resolve()
+let shuttingDown = false
 
 function reply(value: unknown): void {
+  if (shuttingDown) return
   const payload = Buffer.from(JSON.stringify(value), 'utf8')
   if (payload.length > MAX_NATIVE_MESSAGE_BYTES) return
   const header = Buffer.alloc(4)
   header.writeUInt32LE(payload.length, 0)
   stdout.write(header)
   stdout.write(payload)
+}
+
+function shutdown(): void {
+  if (shuttingDown) return
+  shuttingDown = true
+  stdin.pause()
+  socket?.removeAllListeners()
+  socket?.terminate()
+  socket = null
+  stdout.end()
 }
 
 function fixedError(code: string): void {
@@ -99,5 +111,8 @@ stdin.on('data', chunk => {
     })
   }
 })
+
+stdin.once('end', shutdown)
+stdin.once('close', shutdown)
 
 stdin.resume()
