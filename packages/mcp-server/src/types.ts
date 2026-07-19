@@ -59,5 +59,6 @@ export type ExtensionMethod =
   | 'checkAuth'
   | 'getExecutionState'
   | 'focusExecutionTab'
+  | 'openPlatformLogin'
   | 'syncArticle'
   | 'extractArticle'

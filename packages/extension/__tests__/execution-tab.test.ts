@@ -4,6 +4,7 @@ import { chromeMock, mockStorage } from '../vitest.setup'
 import {
   findExecutionTab,
   focusExecutionTab,
+  openLoginHandoffTab,
   recordExecutionTab,
 } from '../src/mcp/execution-tab'
 
@@ -48,5 +49,40 @@ describe('execution task tabs', () => {
 
     await expect(focusExecutionTab({ executionTabIds: [99] })).resolves.toEqual({ focused: false })
     expect(chromeMock.tabs.update).not.toHaveBeenCalled()
+  })
+
+  it('opens and records a body-free login handoff for one fixed platform', async () => {
+    chromeMock.tabs.create = vi.fn().mockResolvedValue({
+      id: 77,
+      windowId: 5,
+      title: 'Toutiao',
+      url: 'https://mp.toutiao.com/profile_v4/index',
+    })
+
+    const result = await openLoginHandoffTab(
+      'toutiao',
+      'https://mp.toutiao.com/profile_v4/index',
+      () => 1_784_455_200_000,
+    )
+
+    expect(result).toEqual({ opened: true, platform: 'toutiao' })
+    expect(chromeMock.tabs.create).toHaveBeenCalledWith({
+      url: 'https://mp.toutiao.com/profile_v4/index',
+      active: true,
+    })
+    expect(mockStorage.activeSyncState).toEqual({
+      syncId: 'handoff_toutiao_1784455200000',
+      status: 'failed',
+      selectedPlatforms: ['toutiao'],
+      results: [{
+        platform: 'toutiao',
+        success: false,
+        error: 'login required',
+        timestamp: 1_784_455_200_000,
+      }],
+      startTime: 1_784_455_200_000,
+      executionTabIds: [77],
+    })
+    expect(JSON.stringify(mockStorage.activeSyncState)).not.toContain('article')
   })
 })

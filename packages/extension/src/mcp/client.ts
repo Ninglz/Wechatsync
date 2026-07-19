@@ -10,7 +10,11 @@ import { markdownToHtml } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 import { performSync } from '../background/sync-service'
 import { buildExecutionState } from './execution-state'
-import { findExecutionTab, focusExecutionTab } from './execution-tab'
+import {
+  findExecutionTab,
+  focusExecutionTab,
+  openLoginHandoffTab,
+} from './execution-tab'
 import { authenticatedWebSocketUrl } from './pairing-url'
 import { NativeMcpSocket } from './native-socket'
 
@@ -365,6 +369,14 @@ class McpClient {
       case 'focusExecutionTab': {
         const storage = await chrome.storage.local.get('activeSyncState')
         return focusExecutionTab(storage.activeSyncState)
+      }
+
+      case 'openPlatformLogin': {
+        const platform = params?.platform as string
+        if (!platform) throw new Error('Missing platform parameter')
+        const adapter = await getAdapter(platform)
+        if (!adapter) throw new Error(`Platform not found: ${platform}`)
+        return openLoginHandoffTab(platform, adapter.meta.homepage)
       }
 
       case 'syncArticle': {

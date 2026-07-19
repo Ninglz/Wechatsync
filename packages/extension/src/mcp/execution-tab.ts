@@ -26,6 +26,44 @@ export async function recordExecutionTab(tabId: number): Promise<void> {
   })
 }
 
+export async function openLoginHandoffTab(
+  platformId: string,
+  homepage: string,
+  clock: () => number = Date.now,
+): Promise<{ opened: true; platform: string }> {
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(platformId)) {
+    throw new Error('Invalid platform')
+  }
+  const target = new URL(homepage)
+  if (target.protocol !== 'https:' || target.username || target.password) {
+    throw new Error('Invalid platform homepage')
+  }
+  const tab = await chrome.tabs.create({ url: target.href, active: true })
+  if (!Number.isInteger(tab.id) || typeof tab.id !== 'number' || tab.id < 0) {
+    throw new Error('Platform login tab unavailable')
+  }
+  const timestamp = clock()
+  if (!Number.isSafeInteger(timestamp) || timestamp < 1) {
+    throw new Error('Invalid handoff timestamp')
+  }
+  await chrome.storage.local.set({
+    activeSyncState: {
+      syncId: `handoff_${platformId}_${timestamp}`,
+      status: 'failed',
+      selectedPlatforms: [platformId],
+      results: [{
+        platform: platformId,
+        success: false,
+        error: 'login required',
+        timestamp,
+      }],
+      startTime: timestamp,
+      executionTabIds: [tab.id],
+    },
+  })
+  return { opened: true, platform: platformId }
+}
+
 export async function findExecutionTab(state: unknown): Promise<chrome.tabs.Tab | null> {
   const ids = tabIds(state).reverse()
   for (const id of ids) {
