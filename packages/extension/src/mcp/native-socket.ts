@@ -74,6 +74,11 @@ export class NativeMcpSocket {
     if (this.closed) return
     this.closed = true
     this.readyState = 3
+    try {
+      this.port.disconnect()
+    } catch {
+      // Chrome may already have closed the native port.
+    }
     if (error) this.onerror?.call(this as unknown as WebSocket, new Event('error'))
     this.onclose?.call(
       this as unknown as WebSocket,

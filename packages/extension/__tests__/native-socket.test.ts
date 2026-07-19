@@ -69,4 +69,14 @@ describe('AHAX native MCP socket', () => {
     expect(socket.readyState).toBe(3)
     expect(closed).toHaveBeenCalledWith({ code: 1006 })
   })
+
+  it('disconnects the native port when the bridge closes its WebSocket', () => {
+    const harness = portHarness()
+    const socket = new NativeMcpSocket('ws://127.0.0.1:9527/', () => harness.port)
+
+    harness.message({ version: 1, type: 'close', code: 1001 })
+
+    expect(socket.readyState).toBe(3)
+    expect(harness.port.disconnect).toHaveBeenCalledOnce()
+  })
 })
