@@ -7,6 +7,7 @@
  */
 import { WebSocketServer, WebSocket } from 'ws'
 import http from 'http'
+import { timingSafeEqual } from 'crypto'
 import type { RequestMessage, ResponseMessage } from './types.js'
 
 // WebSocket 状态常量 (readyState: 1 = OPEN)
@@ -66,7 +67,7 @@ export class ExtensionBridge {
   private startServer(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.wss = new WebSocketServer({ port: this.port })
+        this.wss = new WebSocketServer({ port: this.port, host: '127.0.0.1' })
 
         this.wss.on('listening', () => {
           if (!this.silent) console.error(`[Bridge] WebSocket server listening on port ${this.port}`)
@@ -115,19 +116,11 @@ export class ExtensionBridge {
   private startHttpApi(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.httpServer = http.createServer(async (req, res) => {
-        // CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-
-        if (req.method === 'OPTIONS') {
-          res.writeHead(200)
-          res.end()
-          return
-        }
-
         if (req.method === 'GET' && req.url === '/status') {
-          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          })
           res.end(JSON.stringify({
             connected: this.isConnected(),
             mode: 'primary'
@@ -136,16 +129,34 @@ export class ExtensionBridge {
         }
 
         if (req.method === 'POST' && req.url === '/request') {
+          if (!this.isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: 'Unauthorized' }))
+            return
+          }
+
           let body = ''
-          req.on('data', chunk => body += chunk)
+          let tooLarge = false
+          req.on('data', chunk => {
+            if (tooLarge) return
+            body += chunk
+            if (Buffer.byteLength(body) > 1024 * 1024) {
+              tooLarge = true
+              res.writeHead(413, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ error: 'Request body too large' }))
+              req.destroy()
+            }
+          })
           req.on('end', async () => {
+            if (tooLarge) return
             try {
               const { method, params } = JSON.parse(body)
               const result = await this.requestInternal(method, params)
               res.writeHead(200, { 'Content-Type': 'application/json' })
               res.end(JSON.stringify({ result }))
             } catch (error) {
-              res.writeHead(500, { 'Content-Type': 'application/json' })
+              const status = (error as Error).message.startsWith('Extension not connected') ? 503 : 500
+              res.writeHead(status, { 'Content-Type': 'application/json' })
               res.end(JSON.stringify({ error: (error as Error).message }))
             }
           })
@@ -157,13 +168,23 @@ export class ExtensionBridge {
       })
 
       const httpPort = this.port + 1
-      this.httpServer.listen(httpPort, () => {
+      this.httpServer.listen(httpPort, '127.0.0.1', () => {
         if (!this.silent) console.error(`[Bridge] HTTP API listening on port ${httpPort}`)
         resolve()
       })
 
       this.httpServer.on('error', reject)
     })
+  }
+
+  private isAuthorized(req: http.IncomingMessage): boolean {
+    if (!this.token) return false
+    const header = req.headers.authorization || ''
+    const expected = `Bearer ${this.token}`
+    const actualBuffer = Buffer.from(header)
+    const expectedBuffer = Buffer.from(expected)
+    return actualBuffer.length === expectedBuffer.length
+      && timingSafeEqual(actualBuffer, expectedBuffer)
   }
 
   /**
@@ -299,7 +320,7 @@ export class ExtensionBridge {
   private async checkPrimaryHealth(): Promise<{ connected: boolean; error?: string }> {
     return new Promise((resolve) => {
       const options = {
-        hostname: 'localhost',
+        hostname: '127.0.0.1',
         port: this.port + 1,
         path: '/status',
         method: 'GET',
@@ -449,13 +470,14 @@ export class ExtensionBridge {
     return new Promise((resolve, reject) => {
       const data = JSON.stringify({ method, params })
       const options = {
-        hostname: 'localhost',
+        hostname: '127.0.0.1',
         port: this.port + 1,
         path: '/request',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data)
+          'Content-Length': Buffer.byteLength(data),
+          'Authorization': `Bearer ${this.token}`,
         }
       }
 
