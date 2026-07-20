@@ -119,6 +119,7 @@ export class XiaohongshuAdapter extends CodeAdapter {
     }
 
     let editorTabId: number | null = null
+    let draftSaved = false
     try {
       const images = await this.resolveImages(draft.images)
       const editorTab = await this.runtime.tabs.create(EDITOR_URL, false)
@@ -126,6 +127,9 @@ export class XiaohongshuAdapter extends CodeAdapter {
       await this.runtime.tabs.waitForLoad(editorTab.id)
       if (!this.runtime.tabs.trustedImageUpload) {
         throw new Error('当前扩展无法使用小红书原生图片选择')
+      }
+      if (!this.runtime.tabs.retainTrustedImageUpload) {
+        throw new Error('当前扩展无法保留小红书草稿图片')
       }
       await this.runtime.tabs.trustedImageUpload(editorTab.id, images)
       const prepared = await this.runtime.tabs.executeScript(
@@ -242,6 +246,8 @@ export class XiaohongshuAdapter extends CodeAdapter {
         if (!saved) await new Promise(resolve => setTimeout(resolve, 100))
       }
       if (!saved) throw new Error('AHAX_DRAFT_SAVE_VERIFICATION_FAILED')
+      await this.runtime.tabs.retainTrustedImageUpload(editorTab.id)
+      draftSaved = true
       return this.createResult(true, {
         postUrl: EDITOR_URL,
         draftOnly: true,
@@ -254,7 +260,7 @@ export class XiaohongshuAdapter extends CodeAdapter {
       })
     } finally {
       this.releaseImages(draft.images)
-      if (editorTabId !== null) {
+      if (editorTabId !== null && !draftSaved) {
         await this.runtime.tabs.releaseTrustedImageUpload?.(editorTabId).catch(() => undefined)
       }
     }

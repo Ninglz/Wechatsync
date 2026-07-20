@@ -107,6 +107,8 @@ export interface RuntimeInterface {
       filename: string
       type: string
     }>): Promise<void>
+    /** 保留已被浏览器本地草稿引用的图片文件，仅清除下载记录 */
+    retainTrustedImageUpload?(tabId: number): Promise<void>
     /** 清理原生图片输入使用的本地临时文件 */
     releaseTrustedImageUpload?(tabId: number): Promise<void>
     /**

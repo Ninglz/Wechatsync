@@ -65,6 +65,7 @@ describe('XiaohongshuAdapter', () => {
       .mockResolvedValueOnce({ prepared: true, imageCount: 1 })
       .mockResolvedValueOnce({ saved: true })
     const trustedImageUpload = vi.fn().mockResolvedValue(undefined)
+    const retainTrustedImageUpload = vi.fn().mockResolvedValue(undefined)
     const releaseTrustedImageUpload = vi.fn().mockResolvedValue(undefined)
     const trustedDraftSave = vi.fn().mockResolvedValue(undefined)
     const tabs = {
@@ -77,7 +78,7 @@ describe('XiaohongshuAdapter', () => {
         url: 'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       }),
       waitForLoad: vi.fn(), executeScript, trustedImageUpload,
-      releaseTrustedImageUpload, trustedDraftSave,
+      retainTrustedImageUpload, releaseTrustedImageUpload, trustedDraftSave,
     }
     const adapter = new XiaohongshuAdapter()
     await adapter.init(runtime({ tabs }))
@@ -104,7 +105,8 @@ describe('XiaohongshuAdapter', () => {
       type: 'image/png',
     })])
     expect(trustedDraftSave).toHaveBeenCalledWith(8)
-    expect(releaseTrustedImageUpload).toHaveBeenCalledWith(8)
+    expect(retainTrustedImageUpload).toHaveBeenCalledWith(8)
+    expect(releaseTrustedImageUpload).not.toHaveBeenCalled()
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       false

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   dispatchTrustedImageFiles,
+  retainTrustedImageFiles,
   releaseTrustedImageFiles,
 } from '../src/runtime/trusted-file-input'
 
@@ -39,7 +40,7 @@ describe('trusted image file input', () => {
     }
   })
 
-  it('uses Chrome native file input semantics and removes the temporary download', async () => {
+  it('uses Chrome native file input semantics and retains the draft asset after success', async () => {
     await dispatchTrustedImageFiles(8, [{
       dataUrl: 'data:image/png;base64,aW1hZ2U=',
       filename: 'cover.png',
@@ -59,6 +60,19 @@ describe('trusted image file input', () => {
         files: ['/Users/test/Downloads/AHAX Uploads/cover.png'],
       },
     )
+
+    await retainTrustedImageFiles(8)
+
+    expect(chrome.downloads.removeFile).not.toHaveBeenCalled()
+    expect(chrome.downloads.erase).toHaveBeenCalledWith({ id: 41 })
+  })
+
+  it('removes the staged file when the draft save fails', async () => {
+    await dispatchTrustedImageFiles(8, [{
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      filename: 'cover.png',
+      type: 'image/png',
+    }])
 
     await releaseTrustedImageFiles(8)
 

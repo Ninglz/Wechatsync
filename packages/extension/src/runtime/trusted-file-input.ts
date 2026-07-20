@@ -107,6 +107,14 @@ export async function releaseTrustedImageFiles(tabId: number): Promise<void> {
   await Promise.all(ids.map(removeDownload))
 }
 
+export async function retainTrustedImageFiles(tabId: number): Promise<void> {
+  const ids = stagedDownloads.get(tabId) || []
+  stagedDownloads.delete(tabId)
+  // Xiaohongshu drafts are browser-local and may continue to reference the
+  // selected file. Keep the file, but remove its entry from download history.
+  await Promise.all(ids.map(id => chrome.downloads.erase({ id }).catch(() => undefined)))
+}
+
 export async function dispatchTrustedImageFiles(
   tabId: number,
   files: TrustedImageFile[],

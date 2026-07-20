@@ -5,6 +5,7 @@ import { dispatchTrustedDraftSave } from './trusted-click'
 import { waitForTabLoad } from './tab-load'
 import {
   dispatchTrustedImageFiles,
+  retainTrustedImageFiles,
   releaseTrustedImageFiles,
 } from './trusted-file-input'
 
@@ -248,6 +249,10 @@ export class ExtensionRuntime implements RuntimeInterface {
 
     async releaseTrustedImageUpload(tabId: number): Promise<void> {
       await releaseTrustedImageFiles(tabId)
+    },
+
+    async retainTrustedImageUpload(tabId: number): Promise<void> {
+      await retainTrustedImageFiles(tabId)
     },
 
     async trustedDraftSave(tabId: number): Promise<void> {
