@@ -49,6 +49,7 @@ export async function dispatchTrustedClick(
         x: point.x,
         y: point.y,
         button: 'left',
+        buttons: 1,
         clickCount: 1,
       })
       await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
@@ -56,6 +57,7 @@ export async function dispatchTrustedClick(
         x: point.x,
         y: point.y,
         button: 'left',
+        buttons: 0,
         clickCount: 1,
       })
     } catch {

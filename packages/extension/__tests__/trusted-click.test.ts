@@ -25,13 +25,19 @@ describe('trusted draft click', () => {
       2,
       { tabId: 8 },
       'Input.dispatchMouseEvent',
-      { type: 'mousePressed', x: 120, y: 640, button: 'left', clickCount: 1 },
+      {
+        type: 'mousePressed', x: 120, y: 640,
+        button: 'left', buttons: 1, clickCount: 1,
+      },
     )
     expect(chrome.debugger.sendCommand).toHaveBeenNthCalledWith(
       3,
       { tabId: 8 },
       'Input.dispatchMouseEvent',
-      { type: 'mouseReleased', x: 120, y: 640, button: 'left', clickCount: 1 },
+      {
+        type: 'mouseReleased', x: 120, y: 640,
+        button: 'left', buttons: 0, clickCount: 1,
+      },
     )
     expect(chrome.debugger.detach).toHaveBeenCalledWith({ tabId: 8 })
   })
