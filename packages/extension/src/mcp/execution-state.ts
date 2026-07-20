@@ -1,9 +1,18 @@
 type UnknownRecord = Record<string, unknown>
 
 export interface ExecutionStateSnapshot {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   connected: true
   browser: 'chrome'
+  context?: {
+    workspace: string
+    account: {
+      platform: string
+      authenticated: boolean
+      label: string | null
+      verifiedAt: string
+    } | null
+  }
   tab: { id: number; title: string; origin: string | null } | null
   task: {
     syncId: string
@@ -14,7 +23,9 @@ export interface ExecutionStateSnapshot {
     completedCount: number
     totalCount: number
   } | null
-  screenshot: { available: false; capturedAt: null; ref: null }
+  screenshot:
+    | { available: false; capturedAt: null; ref: null }
+    | { available: true; capturedAt: string; ref: string }
   recentError: { category: string; suggestedAction: string } | null
   handoff: { required: boolean; reason: string | null }
 }
@@ -79,9 +90,108 @@ function isoTime(value: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
+function safeIsoText(value: unknown): string | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) {
+    return null
+  }
+  return Number.isNaN(new Date(value).getTime()) ? null : value
+}
+
+function safeAccountLabel(value: unknown): string | null {
+  const label = boundedText(value, 80)
+  if (!label || /(cookie|authorization|bearer|token|secret|password)\s*[:=]/i.test(label)) {
+    return null
+  }
+  return label
+}
+
+export function contextFromAuth(
+  platform: unknown,
+  auth: unknown,
+  clock: () => Date = () => new Date(),
+): NonNullable<ExecutionStateSnapshot['context']> {
+  const safePlatform = typeof platform === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(platform)
+    ? platform
+    : null
+  const authRecord = record(auth)
+  const authenticated = authRecord?.isAuthenticated === true
+  const verifiedAt = clock().toISOString()
+  return {
+    workspace: 'AHAX Local',
+    account: safePlatform ? {
+      platform: safePlatform,
+      authenticated,
+      label: safeAccountLabel(authRecord?.username),
+      verifiedAt,
+    } : null,
+  }
+}
+
+export async function captureEvidenceFromDataUrl(
+  dataUrl: unknown,
+  clock: () => Date = () => new Date(),
+): Promise<ExecutionStateSnapshot['screenshot']> {
+  if (typeof dataUrl !== 'string' || !/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
+    return { available: false, capturedAt: null, ref: null }
+  }
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(dataUrl),
+  )
+  const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+  return {
+    available: true,
+    capturedAt: clock().toISOString(),
+    ref: `sha256:${hex}`,
+  }
+}
+
+function safeContext(value: unknown): ExecutionStateSnapshot['context'] | null {
+  const raw = record(value)
+  const workspace = boundedText(raw?.workspace, 80)
+  if (!raw || !workspace) return null
+  const rawAccount = record(raw.account)
+  if (raw.account === null) return { workspace, account: null }
+  const platform = rawAccount?.platform
+  const authenticated = rawAccount?.authenticated
+  const verifiedAt = safeIsoText(rawAccount?.verifiedAt)
+  if (
+    typeof platform !== 'string'
+    || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(platform)
+    || typeof authenticated !== 'boolean'
+    || verifiedAt === null
+  ) return { workspace, account: null }
+  return {
+    workspace,
+    account: {
+      platform,
+      authenticated,
+      label: safeAccountLabel(rawAccount?.label),
+      verifiedAt,
+    },
+  }
+}
+
+function safeScreenshot(value: unknown): ExecutionStateSnapshot['screenshot'] {
+  const raw = record(value)
+  const capturedAt = safeIsoText(raw?.capturedAt)
+  const ref = raw?.ref
+  if (
+    raw?.available === true
+    && capturedAt !== null
+    && typeof ref === 'string'
+    && /^sha256:[a-f0-9]{64}$/.test(ref)
+  ) {
+    return { available: true, capturedAt, ref }
+  }
+  return { available: false, capturedAt: null, ref: null }
+}
+
 export function buildExecutionState(
   activeSyncState: unknown,
   activeTab: unknown,
+  executionContext?: unknown,
+  screenshotEvidence?: unknown,
 ): ExecutionStateSnapshot {
   const state = record(activeSyncState)
   const tab = record(activeTab)
@@ -102,10 +212,13 @@ export function buildExecutionState(
   const tabId = tab?.id
   const tabTitle = tab ? boundedText(tab.title, 160) : null
 
+  const context = safeContext(executionContext)
+  const version = context === null && screenshotEvidence === undefined ? 1 : 2
   return {
-    schemaVersion: 1,
+    schemaVersion: version,
     connected: true,
     browser: 'chrome',
+    ...(version === 2 ? { context: context ?? { workspace: 'AHAX Local', account: null } } : {}),
     tab: typeof tabId === 'number' && Number.isInteger(tabId)
       ? { id: tabId, title: tabTitle ?? 'Chrome tab', origin: safeOrigin(tab?.url) }
       : null,
@@ -118,7 +231,7 @@ export function buildExecutionState(
       completedCount: results.length,
       totalCount: platforms.length,
     } : null,
-    screenshot: { available: false, capturedAt: null, ref: null },
+    screenshot: safeScreenshot(screenshotEvidence),
     recentError: classification ? {
       category: classification.category,
       suggestedAction: classification.suggestedAction,

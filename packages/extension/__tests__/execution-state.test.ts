@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildExecutionState } from '../src/mcp/execution-state'
+import {
+  buildExecutionState,
+  captureEvidenceFromDataUrl,
+  contextFromAuth,
+} from '../src/mcp/execution-state'
 
 describe('buildExecutionState', () => {
   it('returns bounded execution evidence without private article or browser data', () => {
@@ -90,5 +94,81 @@ describe('buildExecutionState', () => {
     expect(state.handoff).toEqual({ required: true, reason: 'captcha_required' })
     expect(state.task?.currentStep).toBe('waiting_for_verification')
     expect(JSON.stringify(state)).not.toContain('raw-private-detail')
+  })
+
+  it('returns bounded workspace, account, and screenshot evidence without image bytes', () => {
+    const state = buildExecutionState(
+      {
+        syncId: 'sync_evidence',
+        status: 'completed',
+        selectedPlatforms: ['toutiao'],
+        results: [{ platform: 'toutiao', success: true }],
+        startTime: 1_721_234_567_000,
+      },
+      {
+        id: 42,
+        title: 'Toutiao editor',
+        url: 'https://mp.toutiao.com/profile_v4/graphic/publish',
+      },
+      {
+        workspace: 'AHAX Local',
+        account: {
+          platform: 'toutiao',
+          authenticated: true,
+          label: 'creator@example.com',
+          verifiedAt: '2026-07-19T10:00:00.000Z',
+        },
+      },
+      {
+        available: true,
+        capturedAt: '2026-07-19T10:01:00.000Z',
+        ref: `sha256:${'a'.repeat(64)}`,
+        dataUrl: 'data:image/jpeg;base64,private-image-bytes',
+      },
+    )
+
+    expect(state.schemaVersion).toBe(2)
+    expect(state.context).toEqual({
+      workspace: 'AHAX Local',
+      account: {
+        platform: 'toutiao',
+        authenticated: true,
+        label: 'creator@example.com',
+        verifiedAt: '2026-07-19T10:00:00.000Z',
+      },
+    })
+    expect(state.screenshot).toEqual({
+      available: true,
+      capturedAt: '2026-07-19T10:01:00.000Z',
+      ref: `sha256:${'a'.repeat(64)}`,
+    })
+    expect(JSON.stringify(state)).not.toContain('private-image-bytes')
+  })
+
+  it('hashes screenshot bytes and bounds account evidence before transport', async () => {
+    const screenshot = await captureEvidenceFromDataUrl(
+      'data:image/jpeg;base64,c2FmZS1maXh0dXJl',
+      () => new Date('2026-07-19T10:01:00.000Z'),
+    )
+    const context = contextFromAuth('toutiao', {
+      isAuthenticated: true,
+      username: ' creator@example.com ',
+      cookie: 'private',
+    }, () => new Date('2026-07-19T10:00:00.000Z'))
+
+    expect(screenshot.available).toBe(true)
+    expect(screenshot.capturedAt).toBe('2026-07-19T10:01:00.000Z')
+    expect(screenshot.ref).toMatch(/^sha256:[a-f0-9]{64}$/)
+    expect(JSON.stringify(screenshot)).not.toContain('c2FmZS1maXh0dXJl')
+    expect(context).toEqual({
+      workspace: 'AHAX Local',
+      account: {
+        platform: 'toutiao',
+        authenticated: true,
+        label: 'creator@example.com',
+        verifiedAt: '2026-07-19T10:00:00.000Z',
+      },
+    })
+    expect(JSON.stringify(context)).not.toContain('private')
   })
 })

@@ -9,7 +9,11 @@ import {
 import { markdownToHtml } from '@wechatsync/core'
 import { createLogger } from '../lib/logger'
 import { performSync } from '../background/sync-service'
-import { buildExecutionState } from './execution-state'
+import {
+  buildExecutionState,
+  captureEvidenceFromDataUrl,
+  contextFromAuth,
+} from './execution-state'
 import {
   findExecutionTab,
   focusExecutionTab,
@@ -363,7 +367,29 @@ class McpClient {
       case 'getExecutionState': {
         const storage = await chrome.storage.local.get('activeSyncState')
         const taskTab = await findExecutionTab(storage.activeSyncState)
-        return buildExecutionState(storage.activeSyncState, taskTab)
+        const state = storage.activeSyncState
+        const platforms = state !== null && typeof state === 'object' && Array.isArray(state.selectedPlatforms)
+          ? state.selectedPlatforms.filter((item: unknown): item is string => (
+            typeof item === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(item)
+          )).slice(0, 1)
+          : []
+        const platform = platforms[0]
+        const [auth, screenshot] = await Promise.all([
+          platform
+            ? checkPlatformAuth(platform).catch(() => null)
+            : Promise.resolve(null),
+          taskTab?.active && Number.isInteger(taskTab.windowId)
+            ? chrome.tabs.captureVisibleTab(taskTab.windowId, { format: 'jpeg', quality: 55 })
+              .then(dataUrl => captureEvidenceFromDataUrl(dataUrl))
+              .catch(() => ({ available: false, capturedAt: null, ref: null } as const))
+            : Promise.resolve({ available: false, capturedAt: null, ref: null } as const),
+        ])
+        return buildExecutionState(
+          state,
+          taskTab,
+          contextFromAuth(platform, auth),
+          screenshot,
+        )
       }
 
       case 'focusExecutionTab': {
