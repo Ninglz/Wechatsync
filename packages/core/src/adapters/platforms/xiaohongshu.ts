@@ -118,16 +118,22 @@ export class XiaohongshuAdapter extends CodeAdapter {
       })
     }
 
+    let editorTabId: number | null = null
     try {
       const images = await this.resolveImages(draft.images)
       const editorTab = await this.runtime.tabs.create(EDITOR_URL, false)
+      editorTabId = editorTab.id
       await this.runtime.tabs.waitForLoad(editorTab.id)
+      if (!this.runtime.tabs.trustedImageUpload) {
+        throw new Error('当前扩展无法使用小红书原生图片选择')
+      }
+      await this.runtime.tabs.trustedImageUpload(editorTab.id, images)
       const prepared = await this.runtime.tabs.executeScript(
         editorTab.id,
         async (payload: {
           title: string
           body: string
-          images: Array<{ dataUrl: string; filename: string; type: string }>
+          imageCount: number
         }) => {
           const waitFor = async <T>(getValue: () => T | null, timeout = 30000): Promise<T> => {
             const deadline = Date.now() + timeout
@@ -138,18 +144,6 @@ export class XiaohongshuAdapter extends CodeAdapter {
             }
             throw new Error('小红书编辑器响应超时')
           }
-
-          const fileInput = await waitFor(() => (
-            document.querySelector<HTMLInputElement>('input[type="file"]')
-          ))
-          const transfer = new DataTransfer()
-          for (const image of payload.images) {
-            const response = await fetch(image.dataUrl)
-            const blob = await response.blob()
-            transfer.items.add(new File([blob], image.filename, { type: image.type }))
-          }
-          fileInput.files = transfer.files
-          fileInput.dispatchEvent(new Event('change', { bubbles: true }))
 
           const title = await waitFor(() => document.querySelector<HTMLInputElement>(
             'input[placeholder="填写标题会有更多赞哦"]'
@@ -193,13 +187,33 @@ export class XiaohongshuAdapter extends CodeAdapter {
             title.value === payload.title
             && comparableText(editor.innerText) === comparableText(payload.body)
           ) ? true : null)
+          let imagesStableSince = 0
+          await waitFor(() => {
+            const previews = Array.from(document.querySelectorAll<HTMLImageElement>(
+              'img.img.preview'
+            ))
+            const loading = Array.from(document.querySelectorAll('.mask')).some(
+              element => element.textContent?.trim() === 'loading...'
+            )
+            const ready = previews.length === payload.imageCount
+              && previews.every(image => (
+                image.complete && image.naturalWidth > 0 && image.naturalHeight > 0
+              ))
+              && !loading
+            if (!ready) {
+              imagesStableSince = 0
+              return null
+            }
+            if (!imagesStableSince) imagesStableSince = Date.now()
+            return Date.now() - imagesStableSince >= 4000 ? true : null
+          }, 45000)
           await new Promise<void>(resolve => requestAnimationFrame(
             () => requestAnimationFrame(() => resolve())
           ))
 
-          return { prepared: true, imageCount: payload.images.length }
+          return { prepared: true, imageCount: payload.imageCount }
         },
-        [{ title: draft.title, body: draft.body, images }]
+        [{ title: draft.title, body: draft.body, imageCount: images.length }]
       )
       if (!prepared.prepared) throw new Error('小红书草稿未准备完成')
       if (!this.runtime.tabs.trustedDraftSave) {
@@ -228,18 +242,21 @@ export class XiaohongshuAdapter extends CodeAdapter {
         if (!saved) await new Promise(resolve => setTimeout(resolve, 100))
       }
       if (!saved) throw new Error('AHAX_DRAFT_SAVE_VERIFICATION_FAILED')
-      this.releaseImages(draft.images)
       return this.createResult(true, {
         postUrl: EDITOR_URL,
         draftOnly: true,
         message: `草稿已保存，已上传 ${prepared.imageCount} 张图片`,
       })
     } catch (error) {
-      this.releaseImages(draft.images)
       return this.createResult(false, {
         draftOnly: true,
         error: (error as Error).message,
       })
+    } finally {
+      this.releaseImages(draft.images)
+      if (editorTabId !== null) {
+        await this.runtime.tabs.releaseTrustedImageUpload?.(editorTabId).catch(() => undefined)
+      }
     }
   }
 

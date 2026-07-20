@@ -64,6 +64,8 @@ describe('XiaohongshuAdapter', () => {
       .mockResolvedValueOnce({ authenticated: true })
       .mockResolvedValueOnce({ prepared: true, imageCount: 1 })
       .mockResolvedValueOnce({ saved: true })
+    const trustedImageUpload = vi.fn().mockResolvedValue(undefined)
+    const releaseTrustedImageUpload = vi.fn().mockResolvedValue(undefined)
     const trustedDraftSave = vi.fn().mockResolvedValue(undefined)
     const tabs = {
       query: vi.fn().mockResolvedValue([{
@@ -74,7 +76,8 @@ describe('XiaohongshuAdapter', () => {
         id: 8,
         url: 'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       }),
-      waitForLoad: vi.fn(), executeScript, trustedDraftSave,
+      waitForLoad: vi.fn(), executeScript, trustedImageUpload,
+      releaseTrustedImageUpload, trustedDraftSave,
     }
     const adapter = new XiaohongshuAdapter()
     await adapter.init(runtime({ tabs }))
@@ -92,8 +95,16 @@ describe('XiaohongshuAdapter', () => {
     const editorScript = executeScript.mock.calls[1][1].toString()
     expect(editorScript).toContain('document.execCommand')
     expect(editorScript).toContain('replace(/\\s+/g')
+    expect(editorScript).toContain('naturalWidth > 0')
+    expect(editorScript).toContain('loading...')
+    expect(editorScript).not.toContain('new DataTransfer()')
     expect(editorScript).not.toContain('editor.innerText.trim() === payload.body')
+    expect(trustedImageUpload).toHaveBeenCalledWith(8, [expect.objectContaining({
+      filename: 'cover.png',
+      type: 'image/png',
+    })])
     expect(trustedDraftSave).toHaveBeenCalledWith(8)
+    expect(releaseTrustedImageUpload).toHaveBeenCalledWith(8)
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       false

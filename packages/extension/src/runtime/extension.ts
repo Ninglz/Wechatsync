@@ -3,6 +3,10 @@ import type { Cookie, HeaderRule } from '@wechatsync/core'
 import { recordExecutionTab } from '../mcp/execution-tab'
 import { dispatchTrustedDraftSave } from './trusted-click'
 import { waitForTabLoad } from './tab-load'
+import {
+  dispatchTrustedImageFiles,
+  releaseTrustedImageFiles,
+} from './trusted-file-input'
 
 /**
  * Chrome 扩展运行时实现
@@ -233,6 +237,17 @@ export class ExtensionRuntime implements RuntimeInterface {
 
       const result = results[0]?.result as T
       return result
+    },
+
+    async trustedImageUpload(
+      tabId: number,
+      files: Array<{ dataUrl: string; filename: string; type: string }>,
+    ): Promise<void> {
+      await dispatchTrustedImageFiles(tabId, files)
+    },
+
+    async releaseTrustedImageUpload(tabId: number): Promise<void> {
+      await releaseTrustedImageFiles(tabId)
     },
 
     async trustedDraftSave(tabId: number): Promise<void> {
