@@ -93,10 +93,17 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.DEV': JSON.stringify(isDev),
     },
   resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src'),
-      '@wechatsync/core': resolve(__dirname, '../core/src'),
-    },
+    alias: [
+      { find: '@', replacement: resolve(__dirname, 'src') },
+      {
+        find: /^@wechatsync\/core$/,
+        replacement: resolve(__dirname, '../core/src/index.ts'),
+      },
+      {
+        find: '@wechatsync/core',
+        replacement: resolve(__dirname, '../core/src'),
+      },
+    ],
   },
   build: {
     // 开发模式: 不压缩，生成 sourcemap

@@ -6,6 +6,7 @@ export * from './runtime'
 
 // Adapters
 export * from './adapters'
+export { XiaohongshuAdapter } from './adapters/platforms/xiaohongshu'
 
 // AI (placeholder)
 export * from './ai'
