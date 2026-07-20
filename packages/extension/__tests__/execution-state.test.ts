@@ -137,6 +137,36 @@ describe('buildExecutionState', () => {
       'draft_verification_failed',
       'inspect_platform_drafts',
     ],
+    [
+      'AHAX_IMAGE_INPUT_DEBUGGER_CONFLICT private-detail',
+      'debugger_conflict',
+      'close_conflicting_debugger',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_ATTACH_FAILED private-detail',
+      'debugger_unavailable',
+      'reload_extension_with_debugger_permission',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_UNAVAILABLE private-detail',
+      'image_control_unavailable',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_DISPATCH_FAILED private-detail',
+      'image_input_failed',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_IMAGE_DOWNLOAD_FAILED private-detail',
+      'image_stage_failed',
+      'check_browser_downloads',
+    ],
+    [
+      '小红书编辑器响应超时 private-detail',
+      'editor_timeout',
+      'inspect_platform_editor',
+    ],
   ])('classifies trusted-click failures without copying raw details', (
     error,
     category,

@@ -38,6 +38,36 @@ function bounded<T>(operation: Promise<T>, timeoutMs: number, code: string): Pro
   })
 }
 
+function debuggerConflict(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  return message.includes('another debugger')
+    || message.includes('already attached')
+    || message.includes('already being debugged')
+}
+
+function attachDebugger(target: chrome.debugger.Debuggee): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('AHAX_IMAGE_INPUT_ATTACH_FAILED')),
+      DEBUGGER_TIMEOUT_MS,
+    )
+    chrome.debugger.attach(target, '1.3').then(
+      () => {
+        clearTimeout(timeout)
+        resolve()
+      },
+      error => {
+        clearTimeout(timeout)
+        reject(new Error(
+          debuggerConflict(error)
+            ? 'AHAX_IMAGE_INPUT_DEBUGGER_CONFLICT'
+            : 'AHAX_IMAGE_INPUT_ATTACH_FAILED',
+        ))
+      },
+    )
+  })
+}
+
 function attribute(node: CdpNode, name: string): string {
   const attributes = node.attributes || []
   const index = attributes.indexOf(name)
@@ -129,10 +159,7 @@ export async function dispatchTrustedImageFiles(
   try {
     for (const file of files) downloaded.push(await downloadedPath(file))
     const target = { tabId }
-    await bounded(
-      chrome.debugger.attach(target, '1.3'), DEBUGGER_TIMEOUT_MS,
-      'AHAX_IMAGE_INPUT_ATTACH_FAILED',
-    )
+    await attachDebugger(target)
     try {
       const documentResult = await bounded(
         chrome.debugger.sendCommand(target, 'DOM.getDocument', { depth: -1, pierce: true }),

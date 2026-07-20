@@ -94,6 +94,20 @@ describe('trusted image file input', () => {
     expect(chrome.downloads.removeFile).toHaveBeenCalledWith(41)
   })
 
+  it('reports a conflicting debugger without exposing Chrome error details', async () => {
+    vi.mocked(chrome.debugger.attach).mockRejectedValueOnce(
+      new Error('Another debugger is already attached with private-detail'),
+    )
+
+    await expect(dispatchTrustedImageFiles(8, [{
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      filename: 'cover.png',
+      type: 'image/png',
+    }])).rejects.toThrow('AHAX_IMAGE_INPUT_DEBUGGER_CONFLICT')
+
+    expect(chrome.downloads.removeFile).toHaveBeenCalledWith(41)
+  })
+
   it('rejects non-image payloads before downloading or attaching', async () => {
     await expect(dispatchTrustedImageFiles(8, [{
       dataUrl: 'data:text/plain;base64,c2VjcmV0',

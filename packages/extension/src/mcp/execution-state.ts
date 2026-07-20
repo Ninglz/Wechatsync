@@ -83,6 +83,7 @@ function errorClassification(results: unknown): {
   }
   if (
     markers.includes('ahax_trusted_click_debugger_conflict')
+    || markers.includes('ahax_image_input_debugger_conflict')
     || markers.includes('another debugger')
     || markers.includes('already attached')
     || markers.includes('already being debugged')
@@ -95,6 +96,7 @@ function errorClassification(results: unknown): {
   }
   if (
     markers.includes('ahax_trusted_click_attach_failed')
+    || markers.includes('ahax_image_input_attach_failed')
     || markers.includes('cannot attach to this target')
     || markers.includes('debugger permission')
     || markers.includes('not allowed to debug')
@@ -132,6 +134,34 @@ function errorClassification(results: unknown): {
     return {
       category: 'draft_control_unavailable',
       suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_image_input_unavailable')) {
+    return {
+      category: 'image_control_unavailable',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_image_input_dispatch_failed')) {
+    return {
+      category: 'image_input_failed',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_image_download_failed')) {
+    return {
+      category: 'image_stage_failed',
+      suggestedAction: 'check_browser_downloads',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('小红书编辑器响应超时')) {
+    return {
+      category: 'editor_timeout',
+      suggestedAction: 'inspect_platform_editor',
       handoffReason: null,
     }
   }
