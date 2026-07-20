@@ -88,6 +88,20 @@ describe('trusted draft save', () => {
     expect(chrome.debugger.detach).not.toHaveBeenCalled()
   })
 
+  it('fails closed instead of leaving a draft task running when debugger attach stalls', async () => {
+    vi.useFakeTimers()
+    vi.mocked(chrome.debugger.attach).mockReturnValueOnce(new Promise(() => undefined))
+
+    const save = expect(dispatchTrustedDraftSave(8)).rejects.toThrow(
+      'AHAX_TRUSTED_CLICK_ATTACH_FAILED',
+    )
+    await vi.advanceTimersByTimeAsync(5001)
+
+    await save
+    expect(chrome.debugger.sendCommand).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
   it('stores only a fixed dispatch code for private Chrome failures', async () => {
     vi.mocked(chrome.debugger.sendCommand).mockRejectedValueOnce(
       new Error('unknown private Chrome failure'),

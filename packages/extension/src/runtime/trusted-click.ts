@@ -7,6 +7,27 @@ type CdpNode = {
   shadowRoots?: CdpNode[]
 }
 
+const DEBUGGER_OPERATION_TIMEOUT_MS = 5000
+
+function boundedDebuggerOperation<T>(operation: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('AHAX_DEBUGGER_OPERATION_TIMEOUT')),
+      DEBUGGER_OPERATION_TIMEOUT_MS,
+    )
+    operation.then(
+      value => {
+        clearTimeout(timeout)
+        resolve(value)
+      },
+      error => {
+        clearTimeout(timeout)
+        reject(error)
+      },
+    )
+  })
+}
+
 function isDebuggerConflict(error: unknown): boolean {
   const message = error instanceof Error ? error.message.toLowerCase() : ''
   return message.includes('another debugger')
@@ -48,7 +69,7 @@ export async function dispatchTrustedDraftSave(tabId: number): Promise<void> {
 
   const target = { tabId }
   try {
-    await chrome.debugger.attach(target, '1.3')
+    await boundedDebuggerOperation(chrome.debugger.attach(target, '1.3'))
   } catch (error) {
     throw new Error(
       isDebuggerConflict(error)
@@ -60,8 +81,10 @@ export async function dispatchTrustedDraftSave(tabId: number): Promise<void> {
   try {
     let documentResult: { root?: CdpNode }
     try {
-      documentResult = await chrome.debugger.sendCommand(
-        target, 'DOM.getDocument', { depth: -1, pierce: true },
+      documentResult = await boundedDebuggerOperation(
+        chrome.debugger.sendCommand(
+          target, 'DOM.getDocument', { depth: -1, pierce: true },
+        ),
       ) as { root?: CdpNode }
     } catch {
       throw new Error('AHAX_TRUSTED_CLICK_DISPATCH_FAILED')
@@ -72,20 +95,24 @@ export async function dispatchTrustedDraftSave(tabId: number): Promise<void> {
     }
 
     try {
-      const resolved = await chrome.debugger.sendCommand(
-        target, 'DOM.resolveNode', { backendNodeId: button.backendNodeId },
+      const resolved = await boundedDebuggerOperation(
+        chrome.debugger.sendCommand(
+          target, 'DOM.resolveNode', { backendNodeId: button.backendNodeId },
+        ),
       ) as { object?: { objectId?: string } }
       const objectId = resolved.object?.objectId
       if (!objectId) throw new Error('missing button object')
-      const called = await chrome.debugger.sendCommand(
-        target,
-        'Runtime.callFunctionOn',
-        {
-          objectId,
-          functionDeclaration: "function(){ if(this.tagName!=='BUTTON'||this.className!=='ce-btn white'||this.textContent.trim()!=='暂存离开') throw new Error('unsafe target'); this.click(); return true; }",
-          userGesture: true,
-          returnByValue: true,
-        },
+      const called = await boundedDebuggerOperation(
+        chrome.debugger.sendCommand(
+          target,
+          'Runtime.callFunctionOn',
+          {
+            objectId,
+            functionDeclaration: "function(){ if(this.tagName!=='BUTTON'||this.className!=='ce-btn white'||this.textContent.trim()!=='暂存离开') throw new Error('unsafe target'); this.click(); return true; }",
+            userGesture: true,
+            returnByValue: true,
+          },
+        ),
       ) as { result?: { value?: unknown }; exceptionDetails?: unknown }
       if (called.exceptionDetails || called.result?.value !== true) {
         throw new Error('draft control call rejected')
@@ -95,6 +122,6 @@ export async function dispatchTrustedDraftSave(tabId: number): Promise<void> {
       throw new Error('AHAX_TRUSTED_CLICK_DISPATCH_FAILED')
     }
   } finally {
-    await chrome.debugger.detach(target).catch(() => undefined)
+    await boundedDebuggerOperation(chrome.debugger.detach(target)).catch(() => undefined)
   }
 }
