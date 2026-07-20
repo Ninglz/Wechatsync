@@ -188,8 +188,10 @@ export class XiaohongshuAdapter extends CodeAdapter {
               data: payload.body,
             }))
           }
+          const comparableText = (value: string) => value.replace(/\s+/g, ' ').trim()
           await waitFor(() => (
-            title.value === payload.title && editor.innerText.trim() === payload.body
+            title.value === payload.title
+            && comparableText(editor.innerText) === comparableText(payload.body)
           ) ? true : null)
           await new Promise<void>(resolve => requestAnimationFrame(
             () => requestAnimationFrame(() => resolve())

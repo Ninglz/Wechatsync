@@ -91,6 +91,8 @@ describe('XiaohongshuAdapter', () => {
     expect(executeScript).toHaveBeenCalledTimes(3)
     const editorScript = executeScript.mock.calls[1][1].toString()
     expect(editorScript).toContain('document.execCommand')
+    expect(editorScript).toContain('replace(/\\s+/g')
+    expect(editorScript).not.toContain('editor.innerText.trim() === payload.body')
     expect(trustedDraftSave).toHaveBeenCalledWith(8)
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
