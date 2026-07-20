@@ -200,6 +200,7 @@ export class XiaohongshuAdapter extends CodeAdapter {
         [{ title: draft.title, body: draft.body, images }]
       )
       if (!prepared.prepared) throw new Error('小红书草稿未准备完成')
+      await this.runtime.tabs.activate?.(editorTab.id)
       const savePoint = await this.runtime.tabs.executeScript(
         editorTab.id,
         async () => {
@@ -212,6 +213,9 @@ export class XiaohongshuAdapter extends CodeAdapter {
             }
             throw new Error('小红书编辑器响应超时')
           }
+          await new Promise<void>(resolve => requestAnimationFrame(
+            () => requestAnimationFrame(() => resolve())
+          ))
           type ClosedShadowChrome = typeof globalThis & {
             chrome?: {
               dom?: { openOrClosedShadowRoot(element: Element): ShadowRoot | null }

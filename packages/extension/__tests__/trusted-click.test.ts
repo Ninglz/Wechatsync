@@ -18,11 +18,16 @@ describe('trusted draft click', () => {
     expect(chrome.debugger.sendCommand).toHaveBeenNthCalledWith(
       1,
       { tabId: 8 },
+      'Page.bringToFront',
+    )
+    expect(chrome.debugger.sendCommand).toHaveBeenNthCalledWith(
+      2,
+      { tabId: 8 },
       'Input.dispatchMouseEvent',
       { type: 'mouseMoved', x: 120, y: 640 },
     )
     expect(chrome.debugger.sendCommand).toHaveBeenNthCalledWith(
-      2,
+      3,
       { tabId: 8 },
       'Input.dispatchMouseEvent',
       {
@@ -31,7 +36,7 @@ describe('trusted draft click', () => {
       },
     )
     expect(chrome.debugger.sendCommand).toHaveBeenNthCalledWith(
-      3,
+      4,
       { tabId: 8 },
       'Input.dispatchMouseEvent',
       {

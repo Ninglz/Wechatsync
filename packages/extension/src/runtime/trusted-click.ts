@@ -39,6 +39,7 @@ export async function dispatchTrustedClick(
   }
   try {
     try {
+      await chrome.debugger.sendCommand(target, 'Page.bringToFront')
       await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
         type: 'mouseMoved',
         x: point.x,

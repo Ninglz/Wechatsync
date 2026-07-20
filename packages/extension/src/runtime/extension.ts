@@ -232,6 +232,10 @@ export class ExtensionRuntime implements RuntimeInterface {
       })
     },
 
+    async activate(tabId: number): Promise<void> {
+      await chrome.tabs.update(tabId, { active: true })
+    },
+
     async executeScript<T, A extends unknown[]>(
       tabId: number,
       func: (...args: A) => T | Promise<T>,

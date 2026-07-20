@@ -89,6 +89,10 @@ export interface RuntimeInterface {
      */
     waitForLoad(tabId: number, timeout?: number): Promise<void>
     /**
+     * 激活 tab，确保后续可信输入使用前台布局坐标
+     */
+    activate?(tabId: number): Promise<void>
+    /**
      * 在 tab 的页面上下文中执行函数
      * @param tabId Tab ID
      * @param func 要执行的函数
