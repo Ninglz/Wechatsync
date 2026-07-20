@@ -131,6 +131,27 @@ export class XiaohongshuAdapter extends CodeAdapter {
       if (!this.runtime.tabs.retainTrustedImageUpload) {
         throw new Error('当前扩展无法保留小红书草稿图片')
       }
+      const inputState = await this.runtime.tabs.executeScript(
+        editorTab.id,
+        async () => {
+          const deadline = Date.now() + 30000
+          while (Date.now() < deadline) {
+            const inputReady = Array.from(document.querySelectorAll<HTMLInputElement>(
+              'input[type="file"]'
+            )).some(input => {
+              const accept = (input.getAttribute('accept') || '').toLowerCase()
+              return !input.disabled && (
+                accept.includes('image') || /\.(?:jpe?g|png|webp)/.test(accept)
+              )
+            })
+            if (inputReady) return { inputReady: true }
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+          return { inputReady: false }
+        },
+        []
+      )
+      if (!inputState.inputReady) throw new Error('AHAX_IMAGE_INPUT_UNAVAILABLE')
       await this.runtime.tabs.trustedImageUpload(editorTab.id, images)
       const prepared = await this.runtime.tabs.executeScript(
         editorTab.id,

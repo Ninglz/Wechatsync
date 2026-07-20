@@ -62,6 +62,7 @@ describe('XiaohongshuAdapter', () => {
   it('stages image blobs and saves through the creator editor without publishing', async () => {
     const executeScript = vi.fn()
       .mockResolvedValueOnce({ authenticated: true })
+      .mockResolvedValueOnce({ inputReady: true })
       .mockResolvedValueOnce({ prepared: true, imageCount: 1 })
       .mockResolvedValueOnce({ saved: true })
     const trustedImageUpload = vi.fn().mockResolvedValue(undefined)
@@ -92,8 +93,11 @@ describe('XiaohongshuAdapter', () => {
     })
 
     expect(imageRef).toMatch(/^ahax-xhs-image:/)
-    expect(executeScript).toHaveBeenCalledTimes(3)
-    const editorScript = executeScript.mock.calls[1][1].toString()
+    expect(executeScript).toHaveBeenCalledTimes(4)
+    const inputReadinessScript = executeScript.mock.calls[1][1].toString()
+    expect(inputReadinessScript).toContain('input[type="file"]')
+    expect(inputReadinessScript).toContain('jpe?g|png|webp')
+    const editorScript = executeScript.mock.calls[2][1].toString()
     expect(editorScript).toContain('document.execCommand')
     expect(editorScript).toContain('replace(/\\s+/g')
     expect(editorScript).toContain('naturalWidth > 0')
