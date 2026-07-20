@@ -112,6 +112,21 @@ describe('buildExecutionState', () => {
       'draft_control_unavailable',
       'refresh_platform_editor',
     ],
+    [
+      'AHAX_TRUSTED_CLICK_DEBUGGER_CONFLICT',
+      'debugger_conflict',
+      'close_conflicting_debugger',
+    ],
+    [
+      'AHAX_TRUSTED_CLICK_ATTACH_FAILED',
+      'debugger_unavailable',
+      'reload_extension_with_debugger_permission',
+    ],
+    [
+      'AHAX_TRUSTED_CLICK_DISPATCH_FAILED',
+      'trusted_click_failed',
+      'refresh_platform_editor',
+    ],
   ])('classifies trusted-click failures without copying raw details', (
     error,
     category,

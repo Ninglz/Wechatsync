@@ -82,7 +82,8 @@ function errorClassification(results: unknown): {
     return { category: 'captcha_required', suggestedAction: 'complete_verification', handoffReason: 'captcha_required' }
   }
   if (
-    markers.includes('another debugger')
+    markers.includes('ahax_trusted_click_debugger_conflict')
+    || markers.includes('another debugger')
     || markers.includes('already attached')
     || markers.includes('already being debugged')
   ) {
@@ -93,13 +94,21 @@ function errorClassification(results: unknown): {
     }
   }
   if (
-    markers.includes('cannot attach to this target')
+    markers.includes('ahax_trusted_click_attach_failed')
+    || markers.includes('cannot attach to this target')
     || markers.includes('debugger permission')
     || markers.includes('not allowed to debug')
   ) {
     return {
       category: 'debugger_unavailable',
       suggestedAction: 'reload_extension_with_debugger_permission',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_trusted_click_dispatch_failed')) {
+    return {
+      category: 'trusted_click_failed',
+      suggestedAction: 'refresh_platform_editor',
       handoffReason: null,
     }
   }
