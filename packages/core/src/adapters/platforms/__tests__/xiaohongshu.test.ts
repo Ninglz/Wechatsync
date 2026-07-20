@@ -63,10 +63,8 @@ describe('XiaohongshuAdapter', () => {
     const executeScript = vi.fn()
       .mockResolvedValueOnce({ authenticated: true })
       .mockResolvedValueOnce({ prepared: true, imageCount: 1 })
-      .mockResolvedValueOnce({ x: 120, y: 640 })
       .mockResolvedValueOnce({ saved: true })
-    const trustedClick = vi.fn().mockResolvedValue(undefined)
-    const activate = vi.fn().mockResolvedValue(undefined)
+    const trustedDraftSave = vi.fn().mockResolvedValue(undefined)
     const tabs = {
       query: vi.fn().mockResolvedValue([{
         id: 7,
@@ -76,7 +74,7 @@ describe('XiaohongshuAdapter', () => {
         id: 8,
         url: 'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       }),
-      waitForLoad: vi.fn(), executeScript, activate, trustedClick,
+      waitForLoad: vi.fn(), executeScript, trustedDraftSave,
     }
     const adapter = new XiaohongshuAdapter()
     await adapter.init(runtime({ tabs }))
@@ -90,20 +88,10 @@ describe('XiaohongshuAdapter', () => {
     })
 
     expect(imageRef).toMatch(/^ahax-xhs-image:/)
-    expect(executeScript).toHaveBeenCalledTimes(4)
+    expect(executeScript).toHaveBeenCalledTimes(3)
     const editorScript = executeScript.mock.calls[1][1].toString()
     expect(editorScript).toContain('document.execCommand')
-    const saveScript = executeScript.mock.calls[2][1].toString()
-    expect(executeScript.mock.calls[2][3]).toBe('ISOLATED')
-    expect(saveScript).toContain('openOrClosedShadowRoot')
-    expect(saveScript).toContain('requestAnimationFrame')
-    expect(saveScript).toContain("button.ce-btn.white")
-    expect(saveScript).not.toContain("button.ce-btn.bg-red")
-    expect(activate).toHaveBeenCalledWith(8)
-    expect(activate.mock.invocationCallOrder[0]).toBeLessThan(
-      executeScript.mock.invocationCallOrder[2],
-    )
-    expect(trustedClick).toHaveBeenCalledWith(8, { x: 120, y: 640 })
+    expect(trustedDraftSave).toHaveBeenCalledWith(8)
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       false

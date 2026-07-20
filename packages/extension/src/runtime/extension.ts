@@ -1,7 +1,7 @@
 import type { RuntimeInterface, RuntimeConfig } from '@wechatsync/core'
 import type { Cookie, HeaderRule } from '@wechatsync/core'
 import { recordExecutionTab } from '../mcp/execution-tab'
-import { activateTrustedClickTarget, dispatchTrustedClick } from './trusted-click'
+import { dispatchTrustedDraftSave } from './trusted-click'
 
 /**
  * Chrome 扩展运行时实现
@@ -232,10 +232,6 @@ export class ExtensionRuntime implements RuntimeInterface {
       })
     },
 
-    async activate(tabId: number): Promise<void> {
-      await activateTrustedClickTarget(tabId)
-    },
-
     async executeScript<T, A extends unknown[]>(
       tabId: number,
       func: (...args: A) => T | Promise<T>,
@@ -253,8 +249,8 @@ export class ExtensionRuntime implements RuntimeInterface {
       return result
     },
 
-    async trustedClick(tabId: number, point: { x: number; y: number }): Promise<void> {
-      await dispatchTrustedClick(tabId, point)
+    async trustedDraftSave(tabId: number): Promise<void> {
+      await dispatchTrustedDraftSave(tabId)
     },
   }
 

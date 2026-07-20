@@ -116,7 +116,17 @@ function errorClassification(results: unknown): {
     }
   }
   if (
-    markers.includes('无法访问小红书草稿控件')
+    markers.includes('ahax_draft_save_verification_failed')
+  ) {
+    return {
+      category: 'draft_verification_failed',
+      suggestedAction: 'inspect_platform_drafts',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('ahax_draft_control_unavailable')
+    || markers.includes('无法访问小红书草稿控件')
     || markers.includes('暂存按钮不可交互')
   ) {
     return {

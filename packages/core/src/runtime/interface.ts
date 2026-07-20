@@ -89,10 +89,6 @@ export interface RuntimeInterface {
      */
     waitForLoad(tabId: number, timeout?: number): Promise<void>
     /**
-     * 激活 tab，确保后续可信输入使用前台布局坐标
-     */
-    activate?(tabId: number): Promise<void>
-    /**
      * 在 tab 的页面上下文中执行函数
      * @param tabId Tab ID
      * @param func 要执行的函数
@@ -106,9 +102,9 @@ export interface RuntimeInterface {
       world?: 'MAIN' | 'ISOLATED'
     ): Promise<T>
     /**
-     * 发送一次浏览器可信鼠标点击（仅扩展运行时支持）
+     * 精确调用平台的安全草稿保存控件（仅扩展运行时支持）
      */
-    trustedClick?(tabId: number, point: { x: number; y: number }): Promise<void>
+    trustedDraftSave?(tabId: number): Promise<void>
   }
 
   /**

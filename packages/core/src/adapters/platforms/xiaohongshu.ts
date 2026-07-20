@@ -200,87 +200,32 @@ export class XiaohongshuAdapter extends CodeAdapter {
         [{ title: draft.title, body: draft.body, images }]
       )
       if (!prepared.prepared) throw new Error('小红书草稿未准备完成')
-      await this.runtime.tabs.activate?.(editorTab.id)
-      const savePoint = await this.runtime.tabs.executeScript(
-        editorTab.id,
-        async () => {
-          const waitFor = async <T>(getValue: () => T | null, timeout = 30000): Promise<T> => {
-            const deadline = Date.now() + timeout
-            while (Date.now() < deadline) {
-              const value = getValue()
-              if (value) return value
-              await new Promise(resolve => setTimeout(resolve, 100))
-            }
-            throw new Error('小红书编辑器响应超时')
-          }
-          await new Promise<void>(resolve => requestAnimationFrame(
-            () => requestAnimationFrame(() => resolve())
-          ))
-          type ClosedShadowChrome = typeof globalThis & {
-            chrome?: {
-              dom?: { openOrClosedShadowRoot(element: Element): ShadowRoot | null }
-            }
-          }
-          const extensionChrome = (globalThis as ClosedShadowChrome).chrome
-          if (!extensionChrome?.dom?.openOrClosedShadowRoot) {
-            throw new Error('当前扩展无法访问小红书草稿控件')
-          }
-          const saveButton = await waitFor(() => {
-            const host = document.querySelector('xhs-publish-btn')
-            if (!host || host.getAttribute('save-disabled') === 'true') return null
-            const root = extensionChrome.dom!.openOrClosedShadowRoot(host)
-            const button = root?.querySelector<HTMLButtonElement>('button.ce-btn.white')
-            if (
-              !button
-              || button.disabled
-              || button.textContent?.trim() !== '暂存离开'
-            ) return null
-            return button
-          })
-          const rect = saveButton.getBoundingClientRect()
-          if (
-            rect.width <= 0
-            || rect.height <= 0
-            || getComputedStyle(saveButton).pointerEvents === 'none'
-          ) {
-            throw new Error('小红书暂存按钮不可交互')
-          }
-          return {
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 2,
-          }
-        },
-        [],
-        'ISOLATED'
-      )
-      if (!this.runtime.tabs.trustedClick) {
+      if (!this.runtime.tabs.trustedDraftSave) {
         throw new Error('当前扩展无法发送可信草稿保存操作')
       }
-      await this.runtime.tabs.trustedClick(editorTab.id, savePoint)
-      const result = await this.runtime.tabs.executeScript(
-        editorTab.id,
-        async () => {
-          const waitFor = async <T>(getValue: () => T | null, timeout = 30000): Promise<T> => {
-            const deadline = Date.now() + timeout
-            while (Date.now() < deadline) {
-              const value = getValue()
-              if (value) return value
-              await new Promise(resolve => setTimeout(resolve, 100))
-            }
-            throw new Error('小红书编辑器响应超时')
-          }
-          await waitFor(() => (
-            !document.querySelector('input[placeholder="填写标题会有更多赞哦"]')
-            || Array.from(document.querySelectorAll('*')).some(
-              element => element.children.length === 0
-                && element.textContent?.trim() === '保存成功'
-            )
-          ) ? true : null)
-          return { saved: true }
-        },
-        []
-      )
-      if (!result.saved) throw new Error('小红书草稿未保存')
+      await this.runtime.tabs.trustedDraftSave(editorTab.id)
+      const saveDeadline = Date.now() + 30000
+      let saved = false
+      while (Date.now() < saveDeadline && !saved) {
+        try {
+          const result = await this.runtime.tabs.executeScript(
+            editorTab.id,
+            () => ({ saved: (
+              !document.querySelector('input[placeholder="填写标题会有更多赞哦"]')
+              || Array.from(document.querySelectorAll('*')).some(
+                element => element.children.length === 0
+                  && element.textContent?.trim() === '保存成功'
+              )
+            ) }),
+            []
+          )
+          saved = result.saved === true
+        } catch {
+          // Navigation destroys the previous execution context; retry on the new page.
+        }
+        if (!saved) await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      if (!saved) throw new Error('AHAX_DRAFT_SAVE_VERIFICATION_FAILED')
       this.releaseImages(draft.images)
       return this.createResult(true, {
         postUrl: EDITOR_URL,

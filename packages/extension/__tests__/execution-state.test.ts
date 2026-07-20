@@ -127,6 +127,16 @@ describe('buildExecutionState', () => {
       'trusted_click_failed',
       'refresh_platform_editor',
     ],
+    [
+      'AHAX_DRAFT_CONTROL_UNAVAILABLE',
+      'draft_control_unavailable',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_DRAFT_SAVE_VERIFICATION_FAILED',
+      'draft_verification_failed',
+      'inspect_platform_drafts',
+    ],
   ])('classifies trusted-click failures without copying raw details', (
     error,
     category,

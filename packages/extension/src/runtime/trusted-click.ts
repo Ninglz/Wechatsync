@@ -1,26 +1,10 @@
-export type TrustedClickPoint = {
-  x: number
-  y: number
-}
-
-export async function activateTrustedClickTarget(tabId: number): Promise<void> {
-  if (!Number.isInteger(tabId) || tabId < 1) {
-    throw new Error('AHAX_TRUSTED_CLICK_ACTIVATION_FAILED')
-  }
-  try {
-    const tab = await chrome.tabs.get(tabId)
-    if (!Number.isInteger(tab.windowId)) {
-      throw new Error('missing target window')
-    }
-    await chrome.tabs.update(tabId, { active: true })
-    await chrome.windows.update(tab.windowId, { focused: true })
-  } catch {
-    throw new Error('AHAX_TRUSTED_CLICK_ACTIVATION_FAILED')
-  }
-}
-
-function validCoordinate(value: number): boolean {
-  return Number.isFinite(value) && value >= 0 && value <= 10_000
+type CdpNode = {
+  nodeName?: string
+  nodeValue?: string
+  backendNodeId?: number
+  attributes?: string[]
+  children?: CdpNode[]
+  shadowRoots?: CdpNode[]
 }
 
 function isDebuggerConflict(error: unknown): boolean {
@@ -30,17 +14,36 @@ function isDebuggerConflict(error: unknown): boolean {
     || message.includes('already being debugged')
 }
 
-export async function dispatchTrustedClick(
-  tabId: number,
-  point: TrustedClickPoint,
-): Promise<void> {
+function nodeClass(node: CdpNode): string {
+  const attributes = node.attributes || []
+  const index = attributes.indexOf('class')
+  return index >= 0 ? attributes[index + 1] || '' : ''
+}
+
+function nodeText(node: CdpNode): string {
+  return [node.nodeValue, ...(node.children || []).map(child => child.nodeValue)]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .trim()
+}
+
+function findSafeDraftButton(node: CdpNode): CdpNode | null {
   if (
-    !Number.isInteger(tabId)
-    || tabId < 1
-    || !validCoordinate(point.x)
-    || !validCoordinate(point.y)
-  ) {
-    throw new Error('Trusted click point is invalid')
+    node.nodeName === 'BUTTON'
+    && nodeClass(node) === 'ce-btn white'
+    && nodeText(node) === '暂存离开'
+    && Number.isInteger(node.backendNodeId)
+  ) return node
+  for (const child of [...(node.children || []), ...(node.shadowRoots || [])]) {
+    const found = findSafeDraftButton(child)
+    if (found) return found
+  }
+  return null
+}
+
+export async function dispatchTrustedDraftSave(tabId: number): Promise<void> {
+  if (!Number.isInteger(tabId) || tabId < 1) {
+    throw new Error('AHAX_TRUSTED_CLICK_ATTACH_FAILED')
   }
 
   const target = { tabId }
@@ -53,36 +56,45 @@ export async function dispatchTrustedClick(
         : 'AHAX_TRUSTED_CLICK_ATTACH_FAILED',
     )
   }
+
   try {
+    let documentResult: { root?: CdpNode }
     try {
-      await chrome.debugger.sendCommand(target, 'Page.bringToFront')
-      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
-        type: 'mouseMoved',
-        x: point.x,
-        y: point.y,
-      })
-      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
-        type: 'mousePressed',
-        x: point.x,
-        y: point.y,
-        button: 'left',
-        buttons: 1,
-        clickCount: 1,
-      })
-      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
-        type: 'mouseReleased',
-        x: point.x,
-        y: point.y,
-        button: 'left',
-        buttons: 0,
-        clickCount: 1,
-      })
+      documentResult = await chrome.debugger.sendCommand(
+        target, 'DOM.getDocument', { depth: -1, pierce: true },
+      ) as { root?: CdpNode }
     } catch {
       throw new Error('AHAX_TRUSTED_CLICK_DISPATCH_FAILED')
     }
+    const button = documentResult.root ? findSafeDraftButton(documentResult.root) : null
+    if (!button?.backendNodeId) {
+      throw new Error('AHAX_DRAFT_CONTROL_UNAVAILABLE')
+    }
+
+    try {
+      const resolved = await chrome.debugger.sendCommand(
+        target, 'DOM.resolveNode', { backendNodeId: button.backendNodeId },
+      ) as { object?: { objectId?: string } }
+      const objectId = resolved.object?.objectId
+      if (!objectId) throw new Error('missing button object')
+      const called = await chrome.debugger.sendCommand(
+        target,
+        'Runtime.callFunctionOn',
+        {
+          objectId,
+          functionDeclaration: "function(){ if(this.tagName!=='BUTTON'||this.className!=='ce-btn white'||this.textContent.trim()!=='暂存离开') throw new Error('unsafe target'); this.click(); return true; }",
+          userGesture: true,
+          returnByValue: true,
+        },
+      ) as { result?: { value?: unknown }; exceptionDetails?: unknown }
+      if (called.exceptionDetails || called.result?.value !== true) {
+        throw new Error('draft control call rejected')
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'AHAX_DRAFT_CONTROL_UNAVAILABLE') throw error
+      throw new Error('AHAX_TRUSTED_CLICK_DISPATCH_FAILED')
+    }
   } finally {
-    // A detach failure happens after the click. The adapter verifies the draft save
-    // separately, so do not convert a completed click into an unsafe retry signal.
     await chrome.debugger.detach(target).catch(() => undefined)
   }
 }
