@@ -3,6 +3,22 @@ export type TrustedClickPoint = {
   y: number
 }
 
+export async function activateTrustedClickTarget(tabId: number): Promise<void> {
+  if (!Number.isInteger(tabId) || tabId < 1) {
+    throw new Error('AHAX_TRUSTED_CLICK_ACTIVATION_FAILED')
+  }
+  try {
+    const tab = await chrome.tabs.get(tabId)
+    if (!Number.isInteger(tab.windowId)) {
+      throw new Error('missing target window')
+    }
+    await chrome.tabs.update(tabId, { active: true })
+    await chrome.windows.update(tab.windowId, { focused: true })
+  } catch {
+    throw new Error('AHAX_TRUSTED_CLICK_ACTIVATION_FAILED')
+  }
+}
+
 function validCoordinate(value: number): boolean {
   return Number.isFinite(value) && value >= 0 && value <= 10_000
 }

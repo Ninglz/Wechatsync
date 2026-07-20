@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { dispatchTrustedClick } from '../src/runtime/trusted-click'
+import {
+  activateTrustedClickTarget,
+  dispatchTrustedClick,
+} from '../src/runtime/trusted-click'
 
 describe('trusted draft click', () => {
   beforeEach(() => {
@@ -9,6 +12,24 @@ describe('trusted draft click', () => {
       sendCommand: vi.fn().mockResolvedValue(undefined),
       detach: vi.fn().mockResolvedValue(undefined),
     }
+    ;(chrome as unknown as { tabs: unknown }).tabs = {
+      get: vi.fn().mockResolvedValue({ id: 8, windowId: 12 }),
+      update: vi.fn().mockResolvedValue({ id: 8, windowId: 12, active: true }),
+    }
+    ;(chrome as unknown as { windows: unknown }).windows = {
+      update: vi.fn().mockResolvedValue({ id: 12, focused: true }),
+    }
+  })
+
+  it('focuses the target window and tab before measuring its layout', async () => {
+    await activateTrustedClickTarget(8)
+
+    expect(chrome.tabs.get).toHaveBeenCalledWith(8)
+    expect(chrome.tabs.update).toHaveBeenCalledWith(8, { active: true })
+    expect(chrome.windows.update).toHaveBeenCalledWith(12, { focused: true })
+    expect(vi.mocked(chrome.tabs.update).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(chrome.windows.update).mock.invocationCallOrder[0],
+    )
   })
 
   it('dispatches one trusted left click and always detaches', async () => {

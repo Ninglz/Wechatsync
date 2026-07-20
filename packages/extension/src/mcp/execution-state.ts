@@ -105,7 +105,10 @@ function errorClassification(results: unknown): {
       handoffReason: null,
     }
   }
-  if (markers.includes('ahax_trusted_click_dispatch_failed')) {
+  if (
+    markers.includes('ahax_trusted_click_activation_failed')
+    || markers.includes('ahax_trusted_click_dispatch_failed')
+  ) {
     return {
       category: 'trusted_click_failed',
       suggestedAction: 'refresh_platform_editor',

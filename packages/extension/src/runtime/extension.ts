@@ -1,7 +1,7 @@
 import type { RuntimeInterface, RuntimeConfig } from '@wechatsync/core'
 import type { Cookie, HeaderRule } from '@wechatsync/core'
 import { recordExecutionTab } from '../mcp/execution-tab'
-import { dispatchTrustedClick } from './trusted-click'
+import { activateTrustedClickTarget, dispatchTrustedClick } from './trusted-click'
 
 /**
  * Chrome 扩展运行时实现
@@ -233,7 +233,7 @@ export class ExtensionRuntime implements RuntimeInterface {
     },
 
     async activate(tabId: number): Promise<void> {
-      await chrome.tabs.update(tabId, { active: true })
+      await activateTrustedClickTarget(tabId)
     },
 
     async executeScript<T, A extends unknown[]>(
