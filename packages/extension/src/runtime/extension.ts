@@ -1,6 +1,7 @@
 import type { RuntimeInterface, RuntimeConfig } from '@wechatsync/core'
 import type { Cookie, HeaderRule } from '@wechatsync/core'
 import { recordExecutionTab } from '../mcp/execution-tab'
+import { dispatchTrustedClick } from './trusted-click'
 
 /**
  * Chrome 扩展运行时实现
@@ -246,6 +247,10 @@ export class ExtensionRuntime implements RuntimeInterface {
 
       const result = results[0]?.result as T
       return result
+    },
+
+    async trustedClick(tabId: number, point: { x: number; y: number }): Promise<void> {
+      await dispatchTrustedClick(tabId, point)
     },
   }
 

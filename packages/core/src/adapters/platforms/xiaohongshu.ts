@@ -200,7 +200,7 @@ export class XiaohongshuAdapter extends CodeAdapter {
         [{ title: draft.title, body: draft.body, images }]
       )
       if (!prepared.prepared) throw new Error('小红书草稿未准备完成')
-      const result = await this.runtime.tabs.executeScript(
+      const savePoint = await this.runtime.tabs.executeScript(
         editorTab.id,
         async () => {
           const waitFor = async <T>(getValue: () => T | null, timeout = 30000): Promise<T> => {
@@ -233,7 +233,38 @@ export class XiaohongshuAdapter extends CodeAdapter {
             ) return null
             return button
           })
-          saveButton.click()
+          const rect = saveButton.getBoundingClientRect()
+          if (
+            rect.width <= 0
+            || rect.height <= 0
+            || getComputedStyle(saveButton).pointerEvents === 'none'
+          ) {
+            throw new Error('小红书暂存按钮不可交互')
+          }
+          return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          }
+        },
+        [],
+        'ISOLATED'
+      )
+      if (!this.runtime.tabs.trustedClick) {
+        throw new Error('当前扩展无法发送可信草稿保存操作')
+      }
+      await this.runtime.tabs.trustedClick(editorTab.id, savePoint)
+      const result = await this.runtime.tabs.executeScript(
+        editorTab.id,
+        async () => {
+          const waitFor = async <T>(getValue: () => T | null, timeout = 30000): Promise<T> => {
+            const deadline = Date.now() + timeout
+            while (Date.now() < deadline) {
+              const value = getValue()
+              if (value) return value
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+            throw new Error('小红书编辑器响应超时')
+          }
           await waitFor(() => (
             !document.querySelector('input[placeholder="填写标题会有更多赞哦"]')
             || Array.from(document.querySelectorAll('*')).some(
@@ -243,8 +274,7 @@ export class XiaohongshuAdapter extends CodeAdapter {
           ) ? true : null)
           return { saved: true }
         },
-        [],
-        'ISOLATED'
+        []
       )
       if (!result.saved) throw new Error('小红书草稿未保存')
       this.releaseImages(draft.images)

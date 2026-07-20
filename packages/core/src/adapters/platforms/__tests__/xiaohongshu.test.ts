@@ -63,7 +63,9 @@ describe('XiaohongshuAdapter', () => {
     const executeScript = vi.fn()
       .mockResolvedValueOnce({ authenticated: true })
       .mockResolvedValueOnce({ prepared: true, imageCount: 1 })
-      .mockResolvedValueOnce({ saved: true, imageCount: 1 })
+      .mockResolvedValueOnce({ x: 120, y: 640 })
+      .mockResolvedValueOnce({ saved: true })
+    const trustedClick = vi.fn().mockResolvedValue(undefined)
     const tabs = {
       query: vi.fn().mockResolvedValue([{
         id: 7,
@@ -73,7 +75,7 @@ describe('XiaohongshuAdapter', () => {
         id: 8,
         url: 'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       }),
-      waitForLoad: vi.fn(), executeScript,
+      waitForLoad: vi.fn(), executeScript, trustedClick,
     }
     const adapter = new XiaohongshuAdapter()
     await adapter.init(runtime({ tabs }))
@@ -87,7 +89,7 @@ describe('XiaohongshuAdapter', () => {
     })
 
     expect(imageRef).toMatch(/^ahax-xhs-image:/)
-    expect(executeScript).toHaveBeenCalledTimes(3)
+    expect(executeScript).toHaveBeenCalledTimes(4)
     const editorScript = executeScript.mock.calls[1][1].toString()
     expect(editorScript).toContain('document.execCommand')
     const saveScript = executeScript.mock.calls[2][1].toString()
@@ -95,6 +97,7 @@ describe('XiaohongshuAdapter', () => {
     expect(saveScript).toContain('openOrClosedShadowRoot')
     expect(saveScript).toContain("button.ce-btn.white")
     expect(saveScript).not.toContain("button.ce-btn.bg-red")
+    expect(trustedClick).toHaveBeenCalledWith(8, { x: 120, y: 640 })
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       false

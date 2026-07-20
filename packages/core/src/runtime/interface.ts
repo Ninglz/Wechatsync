@@ -101,6 +101,10 @@ export interface RuntimeInterface {
       args: A,
       world?: 'MAIN' | 'ISOLATED'
     ): Promise<T>
+    /**
+     * 发送一次浏览器可信鼠标点击（仅扩展运行时支持）
+     */
+    trustedClick?(tabId: number, point: { x: number; y: number }): Promise<void>
   }
 
   /**
