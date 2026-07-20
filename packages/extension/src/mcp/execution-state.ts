@@ -81,6 +81,38 @@ function errorClassification(results: unknown): {
   if (CAPTCHA_MARKERS.some(marker => markers.includes(marker))) {
     return { category: 'captcha_required', suggestedAction: 'complete_verification', handoffReason: 'captcha_required' }
   }
+  if (
+    markers.includes('another debugger')
+    || markers.includes('already attached')
+    || markers.includes('already being debugged')
+  ) {
+    return {
+      category: 'debugger_conflict',
+      suggestedAction: 'close_conflicting_debugger',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('cannot attach to this target')
+    || markers.includes('debugger permission')
+    || markers.includes('not allowed to debug')
+  ) {
+    return {
+      category: 'debugger_unavailable',
+      suggestedAction: 'reload_extension_with_debugger_permission',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('无法访问小红书草稿控件')
+    || markers.includes('暂存按钮不可交互')
+  ) {
+    return {
+      category: 'draft_control_unavailable',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
   return { category: 'platform_error', suggestedAction: 'retry_failed_platform', handoffReason: null }
 }
 

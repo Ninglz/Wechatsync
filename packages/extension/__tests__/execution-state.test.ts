@@ -96,6 +96,39 @@ describe('buildExecutionState', () => {
     expect(JSON.stringify(state)).not.toContain('raw-private-detail')
   })
 
+  it.each([
+    [
+      'Another debugger is already attached to the tab private-detail',
+      'debugger_conflict',
+      'close_conflicting_debugger',
+    ],
+    [
+      'Cannot attach to this target private-detail',
+      'debugger_unavailable',
+      'reload_extension_with_debugger_permission',
+    ],
+    [
+      '当前扩展无法访问小红书草稿控件 private-detail',
+      'draft_control_unavailable',
+      'refresh_platform_editor',
+    ],
+  ])('classifies trusted-click failures without copying raw details', (
+    error,
+    category,
+    suggestedAction,
+  ) => {
+    const state = buildExecutionState({
+      syncId: 'sync_trusted_click',
+      status: 'failed',
+      selectedPlatforms: ['xiaohongshu'],
+      results: [{ platform: 'xiaohongshu', success: false, error }],
+      startTime: 1_721_234_567_000,
+    }, undefined)
+
+    expect(state.recentError).toEqual({ category, suggestedAction })
+    expect(JSON.stringify(state)).not.toContain('private-detail')
+  })
+
   it('returns bounded workspace, account, and screenshot evidence without image bytes', () => {
     const state = buildExecutionState(
       {
