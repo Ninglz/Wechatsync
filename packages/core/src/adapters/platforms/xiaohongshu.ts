@@ -120,7 +120,10 @@ export class XiaohongshuAdapter extends CodeAdapter {
 
     try {
       const images = await this.resolveImages(draft.images)
-      const editorTab = await this.runtime.tabs.create(EDITOR_URL, false)
+      // Xiaohongshu does not reliably commit its framework-managed draft action
+      // from a background tab. Keep the execution tab visible so the same safe
+      // draft-only button that a user sees receives the interaction.
+      const editorTab = await this.runtime.tabs.create(EDITOR_URL, true)
       await this.runtime.tabs.waitForLoad(editorTab.id)
       const result = await this.runtime.tabs.executeScript(
         editorTab.id,

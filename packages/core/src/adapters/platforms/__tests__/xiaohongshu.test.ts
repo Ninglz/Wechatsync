@@ -93,7 +93,7 @@ describe('XiaohongshuAdapter', () => {
     expect(editorScript).toContain('document.execCommand')
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
-      false
+      true
     )
     expect(result).toMatchObject({
       success: true,
