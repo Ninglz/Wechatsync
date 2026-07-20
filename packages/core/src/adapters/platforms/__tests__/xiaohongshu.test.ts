@@ -62,6 +62,7 @@ describe('XiaohongshuAdapter', () => {
   it('stages image blobs and saves through the creator editor without publishing', async () => {
     const executeScript = vi.fn()
       .mockResolvedValueOnce({ authenticated: true })
+      .mockResolvedValueOnce({ prepared: true, imageCount: 1 })
       .mockResolvedValueOnce({ saved: true, imageCount: 1 })
     const tabs = {
       query: vi.fn().mockResolvedValue([{
@@ -86,14 +87,17 @@ describe('XiaohongshuAdapter', () => {
     })
 
     expect(imageRef).toMatch(/^ahax-xhs-image:/)
-    expect(executeScript).toHaveBeenCalledTimes(2)
+    expect(executeScript).toHaveBeenCalledTimes(3)
     const editorScript = executeScript.mock.calls[1][1].toString()
-    expect(editorScript).toContain("button.ce-btn.white")
-    expect(editorScript).not.toContain("button.ce-btn.bg-red")
     expect(editorScript).toContain('document.execCommand')
+    const saveScript = executeScript.mock.calls[2][1].toString()
+    expect(executeScript.mock.calls[2][3]).toBe('ISOLATED')
+    expect(saveScript).toContain('openOrClosedShadowRoot')
+    expect(saveScript).toContain("button.ce-btn.white")
+    expect(saveScript).not.toContain("button.ce-btn.bg-red")
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
-      true
+      false
     )
     expect(result).toMatchObject({
       success: true,

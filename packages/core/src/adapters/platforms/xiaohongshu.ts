@@ -120,12 +120,9 @@ export class XiaohongshuAdapter extends CodeAdapter {
 
     try {
       const images = await this.resolveImages(draft.images)
-      // Xiaohongshu does not reliably commit its framework-managed draft action
-      // from a background tab. Keep the execution tab visible so the same safe
-      // draft-only button that a user sees receives the interaction.
-      const editorTab = await this.runtime.tabs.create(EDITOR_URL, true)
+      const editorTab = await this.runtime.tabs.create(EDITOR_URL, false)
       await this.runtime.tabs.waitForLoad(editorTab.id)
-      const result = await this.runtime.tabs.executeScript(
+      const prepared = await this.runtime.tabs.executeScript(
         editorTab.id,
         async (payload: {
           title: string
@@ -198,27 +195,63 @@ export class XiaohongshuAdapter extends CodeAdapter {
             () => requestAnimationFrame(() => resolve())
           ))
 
-          type PublishHost = HTMLElement & { _sr?: ShadowRoot }
-          const saveButton = await waitFor(() => {
-            const host = document.querySelector<PublishHost>('xhs-publish-btn')
-            if (!host || host.getAttribute('save-disabled') === 'true') return null
-            return host._sr?.querySelector<HTMLButtonElement>('button.ce-btn.white') || null
-          })
-          saveButton.click()
-          await waitFor(() => Array.from(document.querySelectorAll('*')).some(
-            element => element.children.length === 0
-              && element.textContent?.trim() === '保存成功'
-          ) ? true : null)
-          return { saved: true, imageCount: payload.images.length }
+          return { prepared: true, imageCount: payload.images.length }
         },
         [{ title: draft.title, body: draft.body, images }]
+      )
+      if (!prepared.prepared) throw new Error('小红书草稿未准备完成')
+      const result = await this.runtime.tabs.executeScript(
+        editorTab.id,
+        async () => {
+          const waitFor = async <T>(getValue: () => T | null, timeout = 30000): Promise<T> => {
+            const deadline = Date.now() + timeout
+            while (Date.now() < deadline) {
+              const value = getValue()
+              if (value) return value
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+            throw new Error('小红书编辑器响应超时')
+          }
+          type ClosedShadowChrome = typeof globalThis & {
+            chrome?: {
+              dom?: { openOrClosedShadowRoot(element: Element): ShadowRoot | null }
+            }
+          }
+          const extensionChrome = (globalThis as ClosedShadowChrome).chrome
+          if (!extensionChrome?.dom?.openOrClosedShadowRoot) {
+            throw new Error('当前扩展无法访问小红书草稿控件')
+          }
+          const saveButton = await waitFor(() => {
+            const host = document.querySelector('xhs-publish-btn')
+            if (!host || host.getAttribute('save-disabled') === 'true') return null
+            const root = extensionChrome.dom!.openOrClosedShadowRoot(host)
+            const button = root?.querySelector<HTMLButtonElement>('button.ce-btn.white')
+            if (
+              !button
+              || button.disabled
+              || button.textContent?.trim() !== '暂存离开'
+            ) return null
+            return button
+          })
+          saveButton.click()
+          await waitFor(() => (
+            !document.querySelector('input[placeholder="填写标题会有更多赞哦"]')
+            || Array.from(document.querySelectorAll('*')).some(
+              element => element.children.length === 0
+                && element.textContent?.trim() === '保存成功'
+            )
+          ) ? true : null)
+          return { saved: true }
+        },
+        [],
+        'ISOLATED'
       )
       if (!result.saved) throw new Error('小红书草稿未保存')
       this.releaseImages(draft.images)
       return this.createResult(true, {
         postUrl: EDITOR_URL,
         draftOnly: true,
-        message: `草稿已保存，已上传 ${result.imageCount} 张图片`,
+        message: `草稿已保存，已上传 ${prepared.imageCount} 张图片`,
       })
     } catch (error) {
       this.releaseImages(draft.images)
