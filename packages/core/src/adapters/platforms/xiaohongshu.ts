@@ -157,20 +157,43 @@ export class XiaohongshuAdapter extends CodeAdapter {
           const editor = await waitFor(() => document.querySelector<HTMLElement>(
             '.tiptap.ProseMirror[contenteditable="true"]'
           ))
-          const titleSetter = Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype, 'value'
-          )?.set
-          titleSetter?.call(title, payload.title)
-          title.dispatchEvent(new Event('input', { bubbles: true }))
+          title.focus()
+          title.select()
+          const titleInserted = document.execCommand('insertText', false, payload.title)
+          if (!titleInserted) {
+            const titleSetter = Object.getOwnPropertyDescriptor(
+              HTMLInputElement.prototype, 'value'
+            )?.set
+            titleSetter?.call(title, payload.title)
+            title.dispatchEvent(new InputEvent('input', {
+              bubbles: true,
+              inputType: 'insertText',
+              data: payload.title,
+            }))
+          }
           title.dispatchEvent(new Event('change', { bubbles: true }))
 
           editor.focus()
-          editor.innerText = payload.body
-          editor.dispatchEvent(new InputEvent('input', {
-            bubbles: true,
-            inputType: 'insertText',
-            data: payload.body,
-          }))
+          const selection = window.getSelection()
+          const range = document.createRange()
+          range.selectNodeContents(editor)
+          selection?.removeAllRanges()
+          selection?.addRange(range)
+          const bodyInserted = document.execCommand('insertText', false, payload.body)
+          if (!bodyInserted) {
+            editor.innerText = payload.body
+            editor.dispatchEvent(new InputEvent('input', {
+              bubbles: true,
+              inputType: 'insertText',
+              data: payload.body,
+            }))
+          }
+          await waitFor(() => (
+            title.value === payload.title && editor.innerText.trim() === payload.body
+          ) ? true : null)
+          await new Promise<void>(resolve => requestAnimationFrame(
+            () => requestAnimationFrame(() => resolve())
+          ))
 
           type PublishHost = HTMLElement & { _sr?: ShadowRoot }
           const saveButton = await waitFor(() => {

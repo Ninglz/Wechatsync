@@ -90,6 +90,7 @@ describe('XiaohongshuAdapter', () => {
     const editorScript = executeScript.mock.calls[1][1].toString()
     expect(editorScript).toContain("button.ce-btn.white")
     expect(editorScript).not.toContain("button.ce-btn.bg-red")
+    expect(editorScript).toContain('document.execCommand')
     expect(tabs.create).toHaveBeenCalledWith(
       'https://creator.xiaohongshu.com/publish/publish?from=ahax&target=image',
       false
