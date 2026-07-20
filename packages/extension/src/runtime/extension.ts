@@ -2,6 +2,7 @@ import type { RuntimeInterface, RuntimeConfig } from '@wechatsync/core'
 import type { Cookie, HeaderRule } from '@wechatsync/core'
 import { recordExecutionTab } from '../mcp/execution-tab'
 import { dispatchTrustedDraftSave } from './trusted-click'
+import { waitForTabLoad } from './tab-load'
 
 /**
  * Chrome 扩展运行时实现
@@ -214,22 +215,7 @@ export class ExtensionRuntime implements RuntimeInterface {
     },
 
     async waitForLoad(tabId: number, timeout = 30000): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          chrome.tabs.onUpdated.removeListener(listener)
-          reject(new Error('Tab load timeout'))
-        }, timeout)
-
-        const listener = (updatedTabId: number, info: chrome.tabs.TabChangeInfo) => {
-          if (updatedTabId === tabId && info.status === 'complete') {
-            clearTimeout(timeoutId)
-            chrome.tabs.onUpdated.removeListener(listener)
-            // 额外等待让页面 JS 初始化
-            setTimeout(resolve, 1000)
-          }
-        }
-        chrome.tabs.onUpdated.addListener(listener)
-      })
+      await waitForTabLoad(tabId, timeout)
     },
 
     async executeScript<T, A extends unknown[]>(
