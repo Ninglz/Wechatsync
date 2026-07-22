@@ -10,6 +10,39 @@ export type RuntimeStatusDescription = {
   action: string
 }
 
+export type RuntimeWakeStatus = {
+  connected: boolean
+  bootstrapAttempted: boolean
+}
+
+export async function wakeDisconnectedRuntime(
+  isConnected: () => boolean,
+  bootstrap: () => Promise<boolean>,
+): Promise<RuntimeWakeStatus> {
+  if (isConnected()) {
+    return { connected: true, bootstrapAttempted: false }
+  }
+
+  await bootstrap()
+  return { connected: isConnected(), bootstrapAttempted: true }
+}
+
+export function observedRuntimeConnection(
+  statusResponse: unknown,
+  authResponse: unknown,
+): boolean {
+  const observedAfterBootstrap = (
+    authResponse as { runtime?: { connected?: unknown } } | null
+  )?.runtime?.connected
+  if (typeof observedAfterBootstrap === 'boolean') {
+    return observedAfterBootstrap
+  }
+
+  return (
+    statusResponse as { connected?: unknown } | null
+  )?.connected === true
+}
+
 export function describeRuntimeStatus(
   status: RuntimeStatusInput,
 ): RuntimeStatusDescription {

@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { describeRuntimeStatus } from '../src/lib/runtime-status'
+import {
+  describeRuntimeStatus,
+  observedRuntimeConnection,
+  wakeDisconnectedRuntime,
+} from '../src/lib/runtime-status'
 
 describe('AHAX Runtime status', () => {
   it('shows the one action that makes an unpaired extension usable', () => {
@@ -28,5 +32,35 @@ describe('AHAX Runtime status', () => {
       detail: '已连接 AHAX，微信公众号已登录，会自动接收草稿任务。',
       action: '重新检查',
     })
+  })
+
+  it('actively restores a disconnected runtime and reports the observed connection', async () => {
+    let connected = false
+    const bootstrap = vi.fn(async () => {
+      connected = true
+      return true
+    })
+
+    const result = await wakeDisconnectedRuntime(() => connected, bootstrap)
+
+    expect(bootstrap).toHaveBeenCalledOnce()
+    expect(result).toEqual({ connected: true, bootstrapAttempted: true })
+  })
+
+  it('reports an existing connection without bootstrapping again', async () => {
+    const bootstrap = vi.fn(async () => true)
+
+    const result = await wakeDisconnectedRuntime(() => true, bootstrap)
+
+    expect(bootstrap).not.toHaveBeenCalled()
+    expect(result).toEqual({ connected: true, bootstrapAttempted: false })
+  })
+
+  it('prefers the post-bootstrap connection over a stale parallel status read', () => {
+    expect(observedRuntimeConnection(
+      { connected: false },
+      { runtime: { connected: true, bootstrapAttempted: true } },
+    )).toBe(true)
+    expect(observedRuntimeConnection({ connected: true }, {})).toBe(true)
   })
 })

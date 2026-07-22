@@ -9,7 +9,10 @@ import { cn } from '@/lib/utils'
 import { trackPageView, trackFeatureDiscovery } from '../../lib/analytics'
 import { createLogger } from '../../lib/logger'
 import { getCachedUpdateInfo, dismissUpdate, type UpdateCheckResult } from '../../lib/version-check'
-import { describeRuntimeStatus } from '../../lib/runtime-status'
+import {
+  describeRuntimeStatus,
+  observedRuntimeConnection,
+} from '../../lib/runtime-status'
 
 const logger = createLogger('HomeNew')
 
@@ -105,7 +108,7 @@ export function HomeNew() {
         chrome.runtime.sendMessage({ type: 'MCP_STATUS' }),
         chrome.runtime.sendMessage({ type: 'CHECK_ALL_AUTH', payload: { forceRefresh: true } }),
       ])
-      setRuntimeConnected(runtime?.connected === true)
+      setRuntimeConnected(observedRuntimeConnection(runtime, auth))
       const wechat = (auth?.platforms || []).find((platform: any) => platform.id === 'weixin')
       setWechatAuthenticated(wechat?.isAuthenticated === true)
     } catch (error) {

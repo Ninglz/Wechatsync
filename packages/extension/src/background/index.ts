@@ -35,6 +35,7 @@ import { AHAX_NATIVE_HOST } from '../mcp/native-socket'
 import { checkSyncFrequency, recordSync } from '../lib/rate-limit'
 import { checkForUpdates, isUpdateDismissed } from '../lib/version-check'
 import { fetchRemoteConfig, fetchConfigIfNeeded } from '../lib/remote-config'
+import { wakeDisconnectedRuntime } from '../lib/runtime-status'
 
 const logger = createLogger('Background')
 
@@ -175,6 +176,10 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
     }
 
     case 'CHECK_ALL_AUTH': {
+      const runtime = await wakeDisconnectedRuntime(
+        () => mcpClient.isConnected(),
+        bootstrapOrRestoreMcp,
+      )
       const forceRefresh = message.payload?.forceRefresh ?? false
       const dslPlatforms = await checkAllPlatformsAuth(forceRefresh)
 
@@ -203,7 +208,7 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
       const allPlatforms = [...dslWithType, ...cmsPlatforms]
       // 缓存完整平台列表，供 popup 启动时立即渲染
       chrome.storage.local.set({ platformListCache: allPlatforms }).catch(() => {})
-      return { platforms: allPlatforms }
+      return { platforms: allPlatforms, runtime }
     }
 
     case 'CHECK_AUTH': {
@@ -636,8 +641,11 @@ async function handleMessage(message: MessageAction, sender?: chrome.runtime.Mes
     }
 
     case 'AHAX_RECONNECT_LOCAL_BRIDGE': {
-      const paired = await bootstrapOrRestoreMcp()
-      return { paired }
+      const runtime = await wakeDisconnectedRuntime(
+        () => mcpClient.isConnected(),
+        bootstrapOrRestoreMcp,
+      )
+      return { paired: runtime.connected, runtime }
     }
 
     case 'MCP_DISABLE': {
