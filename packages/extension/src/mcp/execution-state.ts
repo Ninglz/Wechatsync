@@ -81,6 +81,90 @@ function errorClassification(results: unknown): {
   if (CAPTCHA_MARKERS.some(marker => markers.includes(marker))) {
     return { category: 'captcha_required', suggestedAction: 'complete_verification', handoffReason: 'captcha_required' }
   }
+  if (
+    markers.includes('ahax_trusted_click_debugger_conflict')
+    || markers.includes('ahax_image_input_debugger_conflict')
+    || markers.includes('another debugger')
+    || markers.includes('already attached')
+    || markers.includes('already being debugged')
+  ) {
+    return {
+      category: 'debugger_conflict',
+      suggestedAction: 'close_conflicting_debugger',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('ahax_trusted_click_attach_failed')
+    || markers.includes('ahax_image_input_attach_failed')
+    || markers.includes('cannot attach to this target')
+    || markers.includes('debugger permission')
+    || markers.includes('not allowed to debug')
+  ) {
+    return {
+      category: 'debugger_unavailable',
+      suggestedAction: 'reload_extension_with_debugger_permission',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('ahax_trusted_click_activation_failed')
+    || markers.includes('ahax_trusted_click_dispatch_failed')
+  ) {
+    return {
+      category: 'trusted_click_failed',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('ahax_draft_save_verification_failed')
+  ) {
+    return {
+      category: 'draft_verification_failed',
+      suggestedAction: 'inspect_platform_drafts',
+      handoffReason: null,
+    }
+  }
+  if (
+    markers.includes('ahax_draft_control_unavailable')
+    || markers.includes('无法访问小红书草稿控件')
+    || markers.includes('暂存按钮不可交互')
+  ) {
+    return {
+      category: 'draft_control_unavailable',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_image_input_unavailable')) {
+    return {
+      category: 'image_control_unavailable',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_image_input_dispatch_failed')) {
+    return {
+      category: 'image_input_failed',
+      suggestedAction: 'refresh_platform_editor',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('ahax_image_download_failed')) {
+    return {
+      category: 'image_stage_failed',
+      suggestedAction: 'check_browser_downloads',
+      handoffReason: null,
+    }
+  }
+  if (markers.includes('小红书编辑器响应超时')) {
+    return {
+      category: 'editor_timeout',
+      suggestedAction: 'inspect_platform_editor',
+      handoffReason: null,
+    }
+  }
   return { category: 'platform_error', suggestedAction: 'retry_failed_platform', handoffReason: null }
 }
 

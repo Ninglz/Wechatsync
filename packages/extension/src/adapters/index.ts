@@ -44,6 +44,7 @@ import {
   ZipDownloadAdapter,
   EastmoneyAdapter,
   ToutiaoAdapter,
+  XiaohongshuAdapter,
 } from '@wechatsync/core'
 
 // 私有适配器 - private/ 目录通过 git submodule 管理
@@ -99,6 +100,7 @@ const ADAPTER_CLASSES: AdapterConstructor[] = [
   ZipDownloadAdapter,
   EastmoneyAdapter,
   ToutiaoAdapter,
+  XiaohongshuAdapter,
   ...getPrivateAdapters(),
 ]
 

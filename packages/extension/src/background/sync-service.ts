@@ -228,6 +228,9 @@ export async function performSync(
     html?: string
     markdown?: string
     cover?: string
+    images?: string[]
+    tags?: string[]
+    source?: { platform?: string }
   },
   platforms: string[],
   options: SyncOptions = {},
@@ -247,6 +250,12 @@ export async function performSync(
     html: article.html || article.content || '',
     markdown: article.markdown || '',
     cover: article.cover,
+    images: Array.isArray(article.images)
+      ? article.images.filter((item): item is string => typeof item === 'string').slice(0, 64)
+      : [],
+    tags: Array.isArray(article.tags)
+      ? article.tags.filter((item): item is string => typeof item === 'string').slice(0, 64)
+      : [],
   }
 
   // 获取 CMS 账户信息以区分 DSL 和 CMS
@@ -547,4 +556,3 @@ async function preprocessViaTemporaryTab(
     }
   }
 }
-

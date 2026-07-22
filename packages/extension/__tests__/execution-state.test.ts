@@ -96,6 +96,94 @@ describe('buildExecutionState', () => {
     expect(JSON.stringify(state)).not.toContain('raw-private-detail')
   })
 
+  it.each([
+    [
+      'Another debugger is already attached to the tab private-detail',
+      'debugger_conflict',
+      'close_conflicting_debugger',
+    ],
+    [
+      'Cannot attach to this target private-detail',
+      'debugger_unavailable',
+      'reload_extension_with_debugger_permission',
+    ],
+    [
+      '当前扩展无法访问小红书草稿控件 private-detail',
+      'draft_control_unavailable',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_TRUSTED_CLICK_DEBUGGER_CONFLICT',
+      'debugger_conflict',
+      'close_conflicting_debugger',
+    ],
+    [
+      'AHAX_TRUSTED_CLICK_ATTACH_FAILED',
+      'debugger_unavailable',
+      'reload_extension_with_debugger_permission',
+    ],
+    [
+      'AHAX_TRUSTED_CLICK_DISPATCH_FAILED',
+      'trusted_click_failed',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_DRAFT_CONTROL_UNAVAILABLE',
+      'draft_control_unavailable',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_DRAFT_SAVE_VERIFICATION_FAILED',
+      'draft_verification_failed',
+      'inspect_platform_drafts',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_DEBUGGER_CONFLICT private-detail',
+      'debugger_conflict',
+      'close_conflicting_debugger',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_ATTACH_FAILED private-detail',
+      'debugger_unavailable',
+      'reload_extension_with_debugger_permission',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_UNAVAILABLE private-detail',
+      'image_control_unavailable',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_IMAGE_INPUT_DISPATCH_FAILED private-detail',
+      'image_input_failed',
+      'refresh_platform_editor',
+    ],
+    [
+      'AHAX_IMAGE_DOWNLOAD_FAILED private-detail',
+      'image_stage_failed',
+      'check_browser_downloads',
+    ],
+    [
+      '小红书编辑器响应超时 private-detail',
+      'editor_timeout',
+      'inspect_platform_editor',
+    ],
+  ])('classifies trusted-click failures without copying raw details', (
+    error,
+    category,
+    suggestedAction,
+  ) => {
+    const state = buildExecutionState({
+      syncId: 'sync_trusted_click',
+      status: 'failed',
+      selectedPlatforms: ['xiaohongshu'],
+      results: [{ platform: 'xiaohongshu', success: false, error }],
+      startTime: 1_721_234_567_000,
+    }, undefined)
+
+    expect(state.recentError).toEqual({ category, suggestedAction })
+    expect(JSON.stringify(state)).not.toContain('private-detail')
+  })
+
   it('returns bounded workspace, account, and screenshot evidence without image bytes', () => {
     const state = buildExecutionState(
       {

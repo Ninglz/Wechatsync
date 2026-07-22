@@ -1,6 +1,13 @@
 import type { RuntimeInterface, RuntimeConfig } from '@wechatsync/core'
 import type { Cookie, HeaderRule } from '@wechatsync/core'
 import { recordExecutionTab } from '../mcp/execution-tab'
+import { dispatchTrustedDraftSave } from './trusted-click'
+import { waitForTabLoad } from './tab-load'
+import {
+  dispatchTrustedImageFiles,
+  retainTrustedImageFiles,
+  releaseTrustedImageFiles,
+} from './trusted-file-input'
 
 /**
  * Chrome 扩展运行时实现
@@ -213,38 +220,43 @@ export class ExtensionRuntime implements RuntimeInterface {
     },
 
     async waitForLoad(tabId: number, timeout = 30000): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          chrome.tabs.onUpdated.removeListener(listener)
-          reject(new Error('Tab load timeout'))
-        }, timeout)
-
-        const listener = (updatedTabId: number, info: chrome.tabs.TabChangeInfo) => {
-          if (updatedTabId === tabId && info.status === 'complete') {
-            clearTimeout(timeoutId)
-            chrome.tabs.onUpdated.removeListener(listener)
-            // 额外等待让页面 JS 初始化
-            setTimeout(resolve, 1000)
-          }
-        }
-        chrome.tabs.onUpdated.addListener(listener)
-      })
+      await waitForTabLoad(tabId, timeout)
     },
 
     async executeScript<T, A extends unknown[]>(
       tabId: number,
       func: (...args: A) => T | Promise<T>,
-      args: A
+      args: A,
+      world: 'MAIN' | 'ISOLATED' = 'MAIN'
     ): Promise<T> {
       const results = await chrome.scripting.executeScript({
         target: { tabId },
-        world: 'MAIN',
+        world,
         func: func as (...args: unknown[]) => unknown,
         args: args as unknown[],
       })
 
       const result = results[0]?.result as T
       return result
+    },
+
+    async trustedImageUpload(
+      tabId: number,
+      files: Array<{ dataUrl: string; filename: string; type: string }>,
+    ): Promise<void> {
+      await dispatchTrustedImageFiles(tabId, files)
+    },
+
+    async releaseTrustedImageUpload(tabId: number): Promise<void> {
+      await releaseTrustedImageFiles(tabId)
+    },
+
+    async retainTrustedImageUpload(tabId: number): Promise<void> {
+      await retainTrustedImageFiles(tabId)
+    },
+
+    async trustedDraftSave(tabId: number): Promise<void> {
+      await dispatchTrustedDraftSave(tabId)
     },
   }
 

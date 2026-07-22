@@ -98,8 +98,23 @@ export interface RuntimeInterface {
     executeScript<T, A extends unknown[]>(
       tabId: number,
       func: (...args: A) => T | Promise<T>,
-      args: A
+      args: A,
+      world?: 'MAIN' | 'ISOLATED'
     ): Promise<T>
+    /** 使用浏览器原生文件输入语义选择图片（仅扩展运行时支持） */
+    trustedImageUpload?(tabId: number, files: Array<{
+      dataUrl: string
+      filename: string
+      type: string
+    }>): Promise<void>
+    /** 保留已被浏览器本地草稿引用的图片文件，仅清除下载记录 */
+    retainTrustedImageUpload?(tabId: number): Promise<void>
+    /** 清理原生图片输入使用的本地临时文件 */
+    releaseTrustedImageUpload?(tabId: number): Promise<void>
+    /**
+     * 精确调用平台的安全草稿保存控件（仅扩展运行时支持）
+     */
+    trustedDraftSave?(tabId: number): Promise<void>
   }
 
   /**
