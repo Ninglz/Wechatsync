@@ -13,6 +13,7 @@ describe('AHAX local execution bootstrap', () => {
     expect(shouldBootstrapForTab('http://localhost:8765/projects/project_1')).toBe(true)
     expect(shouldBootstrapForTab('https://ahax.net/?from=chrome-extension-reload')).toBe(true)
     expect(shouldBootstrapForTab('https://www.ahax.net/')).toBe(true)
+    expect(shouldBootstrapForTab('https://geo.ahax.net/')).toBe(true)
     expect(shouldBootstrapForTab('https://example.com/')).toBe(false)
     expect(shouldBootstrapForTab(undefined)).toBe(false)
   })

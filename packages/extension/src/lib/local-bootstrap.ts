@@ -15,7 +15,11 @@ export function shouldBootstrapForTab(url: string | undefined): boolean {
     )
     const ahaxLanding = (
       parsed.protocol === 'https:' &&
-      (parsed.hostname === 'ahax.net' || parsed.hostname === 'www.ahax.net')
+      (
+        parsed.hostname === 'ahax.net' ||
+        parsed.hostname === 'www.ahax.net' ||
+        parsed.hostname === 'geo.ahax.net'
+      )
     )
     return localWorkspace || ahaxLanding
   } catch {
