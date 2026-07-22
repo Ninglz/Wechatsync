@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, Plus, Clock, X, Download, Info } from 'lucide-react'
+import { Settings, Plus, Clock, X, Download, Info, ExternalLink, RefreshCw } from 'lucide-react'
 import { useSyncStore } from '../stores/sync'
 import { SettingsDrawer } from '../components/SettingsDrawer'
 import { SyncDialog } from '@/components/sync-dialog'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { trackPageView, trackFeatureDiscovery } from '../../lib/analytics'
 import { createLogger } from '../../lib/logger'
 import { getCachedUpdateInfo, dismissUpdate, type UpdateCheckResult } from '../../lib/version-check'
+import { describeRuntimeStatus } from '../../lib/runtime-status'
 
 const logger = createLogger('HomeNew')
 
@@ -44,6 +45,9 @@ export function HomeNew() {
   const [floatingEnabled, setFloatingEnabled] = useState(false)
   const [isFirstSync, setIsFirstSync] = useState(false)
   const [showShareTip, setShowShareTip] = useState(false)
+  const [runtimeConnected, setRuntimeConnected] = useState(false)
+  const [wechatAuthenticated, setWechatAuthenticated] = useState(false)
+  const [runtimeChecking, setRuntimeChecking] = useState(true)
 
   // Load data
   useEffect(() => {
@@ -61,6 +65,7 @@ export function HomeNew() {
         }
       } catch {}
       loadAllPlatforms()
+      refreshRuntimeStatus()
       loadArticle()
       chrome.storage.local.get(['floatingButtonEnabled', 'syncHistory', 'dismissedShareTip'], (r) => {
         setFloatingEnabled(r.floatingButtonEnabled ?? false)
@@ -93,6 +98,37 @@ export function HomeNew() {
     }
   }
 
+  const refreshRuntimeStatus = async () => {
+    setRuntimeChecking(true)
+    try {
+      const [runtime, auth] = await Promise.all([
+        chrome.runtime.sendMessage({ type: 'MCP_STATUS' }),
+        chrome.runtime.sendMessage({ type: 'CHECK_ALL_AUTH', payload: { forceRefresh: true } }),
+      ])
+      setRuntimeConnected(runtime?.connected === true)
+      const wechat = (auth?.platforms || []).find((platform: any) => platform.id === 'weixin')
+      setWechatAuthenticated(wechat?.isAuthenticated === true)
+    } catch (error) {
+      logger.error('Failed to inspect Runtime:', error)
+      setRuntimeConnected(false)
+      setWechatAuthenticated(false)
+    } finally {
+      setRuntimeChecking(false)
+    }
+  }
+
+  const handleRuntimeAction = async () => {
+    setRuntimeChecking(true)
+    try {
+      if (!runtimeConnected) {
+        await chrome.runtime.sendMessage({ type: 'AHAX_RECONNECT_LOCAL_BRIDGE' })
+      }
+      await refreshRuntimeStatus()
+    } finally {
+      setRuntimeChecking(false)
+    }
+  }
+
   // Open editor
   const handleEditArticle = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -117,6 +153,10 @@ export function HomeNew() {
   }
 
   const successCount = results.filter(r => r.success).length
+  const runtimeStatus = describeRuntimeStatus({
+    connected: runtimeConnected,
+    wechatAuthenticated,
+  })
 
   return (
     <div className="flex flex-col h-[500px]">
@@ -160,6 +200,46 @@ export function HomeNew() {
           </button>
         </nav>
       </header>
+
+      <section className="px-4 pt-3" aria-label="本机执行端状态">
+        <div className={cn(
+          'rounded-xl border p-3',
+          runtimeStatus.tone === 'ready' && 'border-green-200 bg-green-50',
+          runtimeStatus.tone === 'attention' && 'border-amber-200 bg-amber-50',
+          runtimeStatus.tone === 'waiting' && 'border-slate-200 bg-slate-50',
+        )}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  'h-2.5 w-2.5 shrink-0 rounded-full',
+                  runtimeStatus.tone === 'ready' ? 'bg-green-500' : runtimeStatus.tone === 'attention' ? 'bg-amber-500' : 'bg-slate-400',
+                )} />
+                <p className="text-sm font-semibold">{runtimeChecking ? '正在检查本机执行端…' : runtimeStatus.title}</p>
+              </div>
+              <p className="mt-1 pl-[18px] text-xs leading-relaxed text-muted-foreground">{runtimeStatus.detail}</p>
+            </div>
+            <button
+              type="button"
+              disabled={runtimeChecking}
+              onClick={handleRuntimeAction}
+              className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            >
+              <RefreshCw className={cn('mr-1 inline h-3.5 w-3.5', runtimeChecking && 'animate-spin')} />
+              {runtimeStatus.action}
+            </button>
+          </div>
+          {!wechatAuthenticated && runtimeConnected && (
+            <button
+              type="button"
+              onClick={() => chrome.tabs.create({ url: 'https://mp.weixin.qq.com/' })}
+              className="mt-2 ml-[18px] text-xs font-medium text-primary hover:underline"
+            >
+              打开微信公众号后台 <ExternalLink className="inline h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </section>
 
       {/* Version update banner */}
       {updateInfo?.hasUpdate && updateInfo.info && (
