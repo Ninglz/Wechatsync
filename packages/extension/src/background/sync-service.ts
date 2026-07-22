@@ -21,6 +21,7 @@ export interface SyncResult {
   platform: string
   platformName?: string
   success: boolean
+  postId?: string
   postUrl?: string
   draftOnly?: boolean
   message?: string
@@ -62,6 +63,7 @@ interface SyncHistoryItem {
 interface SyncOptions {
   skipHistory?: boolean
   source?: string
+  intentHash?: string
 }
 
 // 进度回调
@@ -72,7 +74,73 @@ export interface SyncProgressCallbacks {
 }
 
 const SYNC_STATE_KEY = 'activeSyncState'
+const DRAFT_INTENT_KEY_PREFIX = 'mcpDraftIntent:'
 const MAX_HISTORY_ITEMS = 25
+
+type SyncReceipt = { results: SyncResult[]; syncId: string }
+
+type DraftIntentRecord = {
+  status: 'uncertain' | 'saved'
+  updatedAt: number
+  receipt?: SyncReceipt
+}
+
+const activeDraftIntents = new Set<string>()
+
+function normalizeIntentHash(value: string | undefined): string | null {
+  if (value === undefined) return null
+  const normalized = value.trim()
+  if (!/^sha256:[0-9a-f]{64}$/.test(normalized)) {
+    throw new Error('Invalid intentHash')
+  }
+  return normalized
+}
+
+function draftIntentKey(intentHash: string): string {
+  return `${DRAFT_INTENT_KEY_PREFIX}${intentHash}`
+}
+
+async function claimDraftIntent(intentHash: string): Promise<SyncReceipt | null> {
+  const key = draftIntentKey(intentHash)
+  const storage = await chrome.storage.local.get(key)
+  const existing = storage[key] as DraftIntentRecord | undefined
+  if (existing?.status === 'saved' && existing.receipt) {
+    return existing.receipt
+  }
+  if (existing) {
+    throw new Error(`Draft outcome uncertain for intentHash: ${intentHash}`)
+  }
+
+  await chrome.storage.local.set({
+    [key]: { status: 'uncertain', updatedAt: Date.now() } satisfies DraftIntentRecord,
+  })
+  return null
+}
+
+async function saveDraftReceipt(
+  intentHash: string,
+  receipt: SyncReceipt,
+): Promise<void> {
+  await chrome.storage.local.set({
+    [draftIntentKey(intentHash)]: {
+      status: 'saved',
+      updatedAt: Date.now(),
+      receipt,
+    } satisfies DraftIntentRecord,
+  })
+}
+
+function isConfirmedDraftReceipt(
+  receipt: SyncReceipt,
+  platforms: string[],
+): boolean {
+  return receipt.results.length === platforms.length
+    && receipt.results.every(result => (
+      result.success
+      && result.draftOnly === true
+      && Boolean(result.postId?.trim() || result.postUrl?.trim())
+    ))
+}
 
 // Badge 颜色
 const BADGE_COLORS = {
@@ -235,7 +303,45 @@ export async function performSync(
   platforms: string[],
   options: SyncOptions = {},
   callbacks: SyncProgressCallbacks = {}
-): Promise<{ results: SyncResult[]; syncId: string }> {
+): Promise<SyncReceipt> {
+  const intentHash = normalizeIntentHash(options.intentHash)
+  if (!intentHash) {
+    return executeSync(article, platforms, options, callbacks)
+  }
+  if (activeDraftIntents.has(intentHash)) {
+    throw new Error(`Draft outcome uncertain for intentHash: ${intentHash}`)
+  }
+
+  activeDraftIntents.add(intentHash)
+  try {
+    const savedReceipt = await claimDraftIntent(intentHash)
+    if (savedReceipt) return savedReceipt
+
+    const receipt = await executeSync(article, platforms, options, callbacks)
+    if (isConfirmedDraftReceipt(receipt, platforms)) {
+      await saveDraftReceipt(intentHash, receipt)
+    }
+    return receipt
+  } finally {
+    activeDraftIntents.delete(intentHash)
+  }
+}
+
+async function executeSync(
+  article: {
+    title: string
+    content?: string
+    html?: string
+    markdown?: string
+    cover?: string
+    images?: string[]
+    tags?: string[]
+    source?: { platform?: string }
+  },
+  platforms: string[],
+  options: SyncOptions,
+  callbacks: SyncProgressCallbacks,
+): Promise<SyncReceipt> {
   const { skipHistory = false, source = 'mcp' } = options
   const { onResult, onImageProgress, onDetailProgress } = callbacks
 

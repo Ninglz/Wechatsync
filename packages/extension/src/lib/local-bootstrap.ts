@@ -3,6 +3,19 @@ const LOOPBACK_SERVER = 'ws://127.0.0.1:9527'
 const TOKEN = /^[A-Za-z0-9._~-]{16,256}$/
 const REVISION = /^[0-9a-f]{40}$/
 
+export function createSingleFlight<T>(
+  operation: () => Promise<T>,
+): () => Promise<T> {
+  let inFlight: Promise<T> | null = null
+  return () => {
+    if (!inFlight) {
+      inFlight = operation().finally(() => {
+        inFlight = null
+      })
+    }
+    return inFlight
+  }
+}
 
 export function shouldBootstrapForTab(url: string | undefined): boolean {
   if (typeof url !== 'string' || !url) return false

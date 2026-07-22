@@ -29,6 +29,7 @@ import { openAhaxLandingForExtensionBoot } from '../lib/brand'
 import {
   bootstrapAhaxNativeExecution,
   bootstrapAhaxLocalExecution,
+  createSingleFlight,
   shouldBootstrapForTab,
 } from '../lib/local-bootstrap'
 import { AHAX_NATIVE_HOST } from '../mcp/native-socket'
@@ -1206,7 +1207,7 @@ async function waitForMcpConnection(timeoutMs = 3000): Promise<boolean> {
   return mcpClient.isConnected()
 }
 
-async function bootstrapOrRestoreMcp(): Promise<boolean> {
+async function runBootstrapOrRestoreMcp(): Promise<boolean> {
   const extensionVersion = chrome.runtime.getManifest().version
   const effects = {
     extensionVersion,
@@ -1241,6 +1242,8 @@ async function bootstrapOrRestoreMcp(): Promise<boolean> {
   await initMcpIfEnabled()
   return false
 }
+
+const bootstrapOrRestoreMcp = createSingleFlight(runBootstrapOrRestoreMcp)
 
 // AHAX Web 已运行时自动配对；不可用时保留已有本地配置并继续重连。
 bootstrapOrRestoreMcp()

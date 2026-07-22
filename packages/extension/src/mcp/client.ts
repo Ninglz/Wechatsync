@@ -139,8 +139,8 @@ class McpClient {
   connect(): void {
     // 清理旧连接
     if (this.ws) {
-      if (this.ws.readyState === 1) {
-        logger.debug('Already connected')
+      if (this.ws.readyState === 0 || this.ws.readyState === 1) {
+        logger.debug(this.ws.readyState === 0 ? 'Already connecting' : 'Already connected')
         return
       }
       // 清理非 OPEN 状态的连接
@@ -148,9 +148,6 @@ class McpClient {
       this.ws.onerror = null
       this.ws.onmessage = null
       this.ws.onopen = null
-      if (this.ws.readyState === 0) {
-        this.ws.close()
-      }
       this.ws = null
     }
 
@@ -407,6 +404,7 @@ class McpClient {
 
       case 'syncArticle': {
         const platforms = params?.platforms as string[]
+        const intentHash = params?.intentHash as string | undefined
         const articleData = params?.article as {
           title: string
           content?: string
@@ -450,7 +448,7 @@ class McpClient {
         const { results, syncId } = await performSync(
           article,
           platforms,
-          { source: 'mcp' }
+          { source: 'mcp', intentHash }
         )
 
         return { results, syncId }

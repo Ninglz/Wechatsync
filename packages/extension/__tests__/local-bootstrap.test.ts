@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   bootstrapAhaxNativeExecution,
   bootstrapAhaxLocalExecution,
+  createSingleFlight,
   shouldBootstrapForTab,
 } from '../src/lib/local-bootstrap'
 
@@ -118,5 +119,32 @@ describe('AHAX local execution bootstrap', () => {
       mcpLocalTransport: 'native',
     }))
     expect(start).toHaveBeenCalledOnce()
+  })
+
+  it('shares one in-flight bootstrap across concurrent wake sources', async () => {
+    let finish!: (value: boolean) => void
+    const operation = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve }))
+    const bootstrap = createSingleFlight(operation)
+
+    const startup = bootstrap()
+    const tabUpdate = bootstrap()
+    const alarm = bootstrap()
+    const wake = bootstrap()
+    const auth = bootstrap()
+
+    expect(operation).toHaveBeenCalledOnce()
+    expect(tabUpdate).toBe(startup)
+    expect(alarm).toBe(startup)
+    expect(wake).toBe(startup)
+    expect(auth).toBe(startup)
+
+    finish(true)
+    await expect(Promise.all([startup, tabUpdate, alarm, wake, auth]))
+      .resolves.toEqual([true, true, true, true, true])
+
+    const nextBootstrap = bootstrap()
+    expect(operation).toHaveBeenCalledTimes(2)
+    finish(true)
+    await expect(nextBootstrap).resolves.toBe(true)
   })
 })
